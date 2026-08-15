@@ -1,7 +1,37 @@
+# ---- Java / Maven ----
 target/
-.idea/
-*.iml
+*.class
+*.jar
+*.war
+*.ear
+.mvn/wrapper/maven-wrapper.jar
+
+# ---- Spring Boot secrets ----
+backend/src/main/resources/application.properties
+backend/src/main/resources/application-*.properties
+.env
+
+# ---- Node / React ----
 node_modules/
 dist/
-.env
+build/
+.vite/
+frontend/.env
+frontend/.env.local
+
+# ---- IDE ----
+.idea/
+*.iml
+*.iws
+.vscode/
+.classpath
+.project
+.settings/
+
+# ---- OS ----
 .DS_Store
+Thumbs.db
+
+# ---- Logs ----
+*.log
+npm-debug.log*
