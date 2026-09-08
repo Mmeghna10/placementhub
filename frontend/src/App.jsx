@@ -16,6 +16,16 @@ import ApplicationDetail from './pages/student/ApplicationDetail';
 import RecruiterDashboard from './pages/recruiter/RecruiterDashboard';
 import AdminDashboard from './pages/admin/AdminDashboard';
 
+import CompanyProfile from './pages/recruiter/CompanyProfile';
+import MyJobs from './pages/recruiter/MyJobs';
+import JobForm from './pages/recruiter/JobForm';
+import ApplicantsList from './pages/recruiter/ApplicantsList';
+
+import ManageStudents from './pages/admin/ManageStudents';
+import ManageRecruiters from './pages/admin/ManageRecruiters';
+import ManageJobs from './pages/admin/ManageJobs';
+import Analytics from './pages/admin/Analytics';
+
 function App() {
   return (
     <AuthProvider>
@@ -50,6 +60,38 @@ function App() {
 
           <Route path="/admin/dashboard" element={
             <ProtectedRoute allowedRole="ADMIN"><AdminDashboard /></ProtectedRoute>
+          } />
+
+          <Route path="/admin/students" element={
+            <ProtectedRoute allowedRole="ADMIN"><ManageStudents /></ProtectedRoute>
+          } />
+          <Route path="/admin/recruiters" element={
+            <ProtectedRoute allowedRole="ADMIN"><ManageRecruiters /></ProtectedRoute>
+          } />
+          <Route path="/admin/jobs" element={
+            <ProtectedRoute allowedRole="ADMIN"><ManageJobs /></ProtectedRoute>
+          } />
+          <Route path="/admin/jobs/pending" element={
+            <ProtectedRoute allowedRole="ADMIN"><ManageJobs /></ProtectedRoute>
+          } />
+          <Route path="/admin/analytics" element={
+            <ProtectedRoute allowedRole="ADMIN"><Analytics /></ProtectedRoute>
+          } />
+
+          <Route path="/recruiter/profile" element={
+            <ProtectedRoute allowedRole="RECRUITER"><CompanyProfile /></ProtectedRoute>
+          } />
+          <Route path="/recruiter/jobs" element={
+            <ProtectedRoute allowedRole="RECRUITER"><MyJobs /></ProtectedRoute>
+          } />
+          <Route path="/recruiter/jobs/new" element={
+            <ProtectedRoute allowedRole="RECRUITER"><JobForm /></ProtectedRoute>
+          } />
+          <Route path="/recruiter/jobs/:jobId/edit" element={
+            <ProtectedRoute allowedRole="RECRUITER"><JobForm /></ProtectedRoute>
+          } />
+          <Route path="/recruiter/jobs/:jobId/applicants" element={
+            <ProtectedRoute allowedRole="RECRUITER"><ApplicantsList /></ProtectedRoute>
           } />
         </Routes>
       </BrowserRouter>
