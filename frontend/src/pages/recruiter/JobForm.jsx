@@ -83,7 +83,7 @@ export default function JobForm() {
           />
         </div>
 
-        <div className="grid grid-cols-2 gap-5">
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
           <div>
             <label className="block text-xs font-medium text-slate uppercase tracking-wide mb-1.5">Job Type</label>
             <select
@@ -103,7 +103,7 @@ export default function JobForm() {
           </div>
         </div>
 
-        <div className="grid grid-cols-2 gap-5">
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
           <div>
             <label className="block text-xs font-medium text-slate uppercase tracking-wide mb-1.5">Min Salary</label>
             <input
@@ -129,7 +129,7 @@ export default function JobForm() {
           />
         </div>
 
-        <div className="grid grid-cols-2 gap-5">
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
           <div>
             <label className="block text-xs font-medium text-slate uppercase tracking-wide mb-1.5">Minimum CGPA</label>
             <input

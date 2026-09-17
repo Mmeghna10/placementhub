@@ -23,8 +23,8 @@ export default function ManageStudents() {
         ) : students.length === 0 ? (
           <EmptyState title="No students yet" />
         ) : (
-          <div className="bg-white border border-ink/10 rounded-lg overflow-hidden">
-            <table className="w-full text-sm">
+          <div className="bg-white border border-ink/10 rounded-lg overflow-x-auto">
+            <table className="w-full text-sm min-w-[600px]">
               <thead className="bg-paper border-b border-ink/10">
                 <tr>
                   <th className="text-left px-5 py-3 text-xs font-medium text-slate uppercase tracking-wide">Name</th>

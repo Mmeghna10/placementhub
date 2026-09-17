@@ -22,7 +22,7 @@ export default function BrowseJobs() {
 
   return (
     <DashboardLayout>
-      <div className="flex items-center justify-between">
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div>
           <h1 className="font-display text-2xl font-semibold text-ink">
             {showRecommended ? 'Recommended For You' : 'Open Roles'}
@@ -30,7 +30,7 @@ export default function BrowseJobs() {
           <div className="mt-1 w-12 border-t border-ink/30" />
         </div>
 
-        <div className="flex bg-white border border-ink/10 rounded-md p-1">
+        <div className="flex bg-white border border-ink/10 rounded-md p-1 self-start">
           <button
             onClick={() => setShowRecommended(false)}
             className={`px-3.5 py-1.5 rounded text-sm font-medium transition ${!showRecommended ? 'bg-ink text-paper' : 'text-slate'}`}
@@ -65,7 +65,7 @@ export default function BrowseJobs() {
                 <p className="text-xs font-mono uppercase tracking-wide text-brass">{job.companyName}</p>
                 <h3 className="font-display text-lg font-semibold text-ink mt-1">{job.title}</h3>
                 <p className="text-sm text-slate mt-2 line-clamp-2">{job.description}</p>
-                <div className="flex items-center gap-3 mt-4 text-xs text-slate">
+                <div className="flex flex-wrap items-center gap-x-3 gap-y-1 mt-4 text-xs text-slate">
                   <span>{job.location}</span>
                   <span>·</span>
                   <span>{job.jobType?.replace('_', ' ')}</span>

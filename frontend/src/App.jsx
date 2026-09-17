@@ -26,6 +26,9 @@ import ManageRecruiters from './pages/admin/ManageRecruiters';
 import ManageJobs from './pages/admin/ManageJobs';
 import Analytics from './pages/admin/Analytics';
 
+import RecruiterProfile from './pages/recruiter/RecruiterProfile';
+import AdminProfile from './pages/admin/AdminProfile';
+
 function App() {
   return (
     <AuthProvider>
@@ -60,6 +63,16 @@ function App() {
 
           <Route path="/admin/dashboard" element={
             <ProtectedRoute allowedRole="ADMIN"><AdminDashboard /></ProtectedRoute>
+          } />
+
+          <Route path="/recruiter/profile" element={
+            <ProtectedRoute allowedRole="RECRUITER"><RecruiterProfile /></ProtectedRoute>
+          } />
+          <Route path="/recruiter/company" element={
+            <ProtectedRoute allowedRole="RECRUITER"><CompanyProfile /></ProtectedRoute>
+          } />
+          <Route path="/admin/profile" element={
+            <ProtectedRoute allowedRole="ADMIN"><AdminProfile /></ProtectedRoute>
           } />
 
           <Route path="/admin/students" element={

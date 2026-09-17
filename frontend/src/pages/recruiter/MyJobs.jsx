@@ -31,14 +31,14 @@ export default function MyJobs() {
 
   return (
     <DashboardLayout>
-      <div className="flex items-center justify-between">
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div>
           <h1 className="font-display text-2xl font-semibold text-ink">My Jobs</h1>
           <div className="mt-1 w-12 border-t border-ink/30" />
         </div>
         <Link
           to="/recruiter/jobs/new"
-          className="flex items-center gap-1.5 px-4 py-2 bg-ink text-paper rounded-md text-sm font-medium hover:bg-ink/90 transition"
+          className="flex items-center gap-1.5 px-4 py-2 bg-ink text-paper rounded-md text-sm font-medium hover:bg-ink/90 transition self-start"
         >
           <Plus size={16} />
           Post a Job
@@ -56,7 +56,7 @@ export default function MyJobs() {
               <div
                 key={job.id}
                 onClick={() => navigate(`/recruiter/jobs/${job.id}/applicants`)}
-                className="flex items-center justify-between px-5 py-4 hover:bg-paper transition cursor-pointer"
+                className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 px-5 py-4 hover:bg-paper transition cursor-pointer"
               >
                 <div>
                   <p className="text-sm font-medium text-ink">{job.title}</p>

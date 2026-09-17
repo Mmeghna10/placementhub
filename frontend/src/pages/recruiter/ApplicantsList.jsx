@@ -51,7 +51,7 @@ export default function ApplicantsList() {
         ) : (
           <div className="bg-white border border-ink/10 rounded-lg divide-y divide-ink/10">
             {applicants.map((app) => (
-              <div key={app.id} className="flex items-center justify-between px-5 py-4">
+              <div key={app.id} className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 px-5 py-4">
                 <div>
                   <p className="text-sm font-medium text-ink">Application #{app.id}</p>
                   <p className="text-xs font-mono text-slate/70 mt-1">
