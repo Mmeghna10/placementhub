@@ -69,9 +69,9 @@ public DaoAuthenticationProvider authenticationProvider() {
     @Bean
     public CorsConfigurationSource corsConfigurationSource() {
         CorsConfiguration configuration = new CorsConfiguration();
-       configuration.setAllowedOrigins(List.of(
+      configuration.setAllowedOrigins(List.of(
     "http://localhost:5173",
-    "https://gentle-hill-06ead3700.4.azurestaticapps.net"
+    "https://agreeable-cliff-07cedfc00.azurestaticapps.net"
 ));
         configuration.setAllowedMethods(List.of("GET", "POST", "PUT", "DELETE", "OPTIONS"));
         configuration.setAllowedHeaders(List.of("*"));
