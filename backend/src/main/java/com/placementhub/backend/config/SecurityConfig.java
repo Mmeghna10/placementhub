@@ -71,7 +71,7 @@ public DaoAuthenticationProvider authenticationProvider() {
         CorsConfiguration configuration = new CorsConfiguration();
       configuration.setAllowedOrigins(List.of(
     "http://localhost:5173",
-    "https://agreeable-cliff-07cedfc00.azurestaticapps.net"
+    "https://agreeable-cliff-07cedfc00.1.azurestaticapps.net"
 ));
         configuration.setAllowedMethods(List.of("GET", "POST", "PUT", "DELETE", "OPTIONS"));
         configuration.setAllowedHeaders(List.of("*"));
