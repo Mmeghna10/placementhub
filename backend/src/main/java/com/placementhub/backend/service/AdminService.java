@@ -3,9 +3,11 @@ package com.placementhub.backend.service;
 import com.placementhub.backend.exception.*;
 import com.placementhub.backend.dto.*;
 import com.placementhub.backend.entity.*;
+import com.placementhub.backend.mapper.JobMapper;
 import com.placementhub.backend.repository.*;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
@@ -13,10 +15,10 @@ import org.springframework.data.domain.Sort;
 
 import java.util.Arrays;
 import java.util.List;
-import java.util.stream.Collectors;
 
 @Service
 @RequiredArgsConstructor
+@Transactional(readOnly = true)
 public class AdminService {
 
     static final int MAX_PAGE_SIZE = 100;
@@ -26,6 +28,7 @@ public class AdminService {
     private final CompanyRepository companyRepository;
     private final JobRepository jobRepository;
     private final ApplicationRepository applicationRepository;
+    private final JobMapper jobMapper;
 
     public AdminDashboardResponse getDashboard() {
         return new AdminDashboardResponse(
@@ -50,7 +53,7 @@ public class AdminService {
 
     public PageResponse<JobResponse> getAllJobs(int page, int size) {
         return PageResponse.from(jobRepository.findAll(newestFirst(page, size))
-                .map(this::mapToJobResponse));
+                .map(jobMapper::toResponse));
     }
 
     /** Clamps client-supplied paging so a request cannot ask for an unbounded page. */
@@ -62,12 +65,13 @@ public class AdminService {
 
     public List<JobResponse> getPendingJobs() {
         return jobRepository.findByStatus("PENDING").stream()
-                .map(this::mapToJobResponse)
-                .collect(Collectors.toList());
+                .map(jobMapper::toResponse)
+                .toList();
     }
 
 
 
+    @Transactional
     public JobResponse updateJobApproval(Long jobId, JobApprovalRequest request) {
         Job job = jobRepository.findById(jobId)
                 .orElseThrow(() -> new NotFoundException("Job not found"));
@@ -75,7 +79,7 @@ public class AdminService {
         job.setStatus(request.getStatus());
         job = jobRepository.save(job);
 
-        return mapToJobResponse(job);
+        return jobMapper.toResponse(job);
     }
 
     public AnalyticsResponse getAnalytics() {
@@ -83,7 +87,7 @@ public class AdminService {
 
         List<ApplicationsByStatusResponse> byStatus = statuses.stream()
                 .map(status -> new ApplicationsByStatusResponse(status, applicationRepository.countByStatus(status)))
-                .collect(Collectors.toList());
+                .toList();
 
         return new AnalyticsResponse(
                 byStatus,
@@ -111,27 +115,6 @@ public class AdminService {
         response.setFullName(recruiter.getFullName());
         response.setCompanyName(recruiter.getCompany() != null ? recruiter.getCompany().getName() : null);
         response.setDesignation(recruiter.getDesignation());
-        return response;
-    }
-
-    private JobResponse mapToJobResponse(Job job) {
-        JobResponse response = new JobResponse();
-        response.setId(job.getId());
-        response.setTitle(job.getTitle());
-        response.setDescription(job.getDescription());
-        response.setJobType(job.getJobType());
-        response.setLocation(job.getLocation());
-        response.setSalaryMin(job.getSalaryMin());
-        response.setSalaryMax(job.getSalaryMax());
-        response.setRequiredSkills(job.getRequiredSkills());
-        response.setMinCgpa(job.getMinCgpa());
-        response.setEligibleBranches(job.getEligibleBranches());
-        response.setApplicationDeadline(job.getApplicationDeadline());
-        response.setStatus(job.getStatus());
-        response.setCompanyName(job.getCompany().getName());
-        response.setCompanyId(job.getCompany().getId());
-        response.setRecruiterId(job.getRecruiter().getId());
-        response.setPostedAt(job.getPostedAt());
         return response;
     }
 }

@@ -2,6 +2,8 @@ package com.placementhub.backend.entity;
 
 import jakarta.persistence.*;
 import lombok.Data;
+import lombok.EqualsAndHashCode;
+import lombok.ToString;
 
 @Entity
 @Table(name = "recruiters")
@@ -12,7 +14,9 @@ public class Recruiter {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
-    @OneToOne
+    @OneToOne(fetch = FetchType.LAZY)
+    @ToString.Exclude
+    @EqualsAndHashCode.Exclude
     @JoinColumn(name = "user_id", unique = true, nullable = false)
     private User user;
 
@@ -22,7 +26,9 @@ public class Recruiter {
     private String phone;
     private String designation;
 
-    @ManyToOne
+    @ManyToOne(fetch = FetchType.LAZY)
+    @ToString.Exclude
+    @EqualsAndHashCode.Exclude
     @JoinColumn(name = "company_id")
     private Company company;
 }

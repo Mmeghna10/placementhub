@@ -12,6 +12,8 @@ import com.placementhub.backend.exception.BusinessRuleException;
 import com.placementhub.backend.exception.ConflictException;
 import com.placementhub.backend.exception.ForbiddenException;
 import com.placementhub.backend.exception.NotFoundException;
+import com.placementhub.backend.mapper.ApplicationMapper;
+import com.placementhub.backend.mapper.JobMapper;
 import com.placementhub.backend.repository.*;
 import com.placementhub.backend.security.JwtUtil;
 import org.junit.jupiter.api.AfterEach;
@@ -22,6 +24,7 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.ArgumentCaptor;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
+import org.mockito.Spy;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
@@ -89,6 +92,8 @@ class Milestone2ServiceRulesTest {
         @Mock JobRepository jobRepository;
         @Mock ApplicationRepository applicationRepository;
         @Mock ApplicationTimelineRepository timelineRepository;
+        @Spy JobMapper jobMapper = new JobMapper();
+        @Mock ApplicationMapper applicationMapper;
         @InjectMocks RecruiterService recruiterService;
 
         private Recruiter recruiter;
@@ -194,6 +199,7 @@ class Milestone2ServiceRulesTest {
         @Mock CompanyRepository companyRepository;
         @Mock JobRepository jobRepository;
         @Mock ApplicationRepository applicationRepository;
+        @Spy JobMapper jobMapper = new JobMapper();
         @InjectMocks AdminService adminService;
 
         @Test

@@ -114,19 +114,25 @@ placementhub/
 ```sql
 CREATE DATABASE placementhub_db;
 ```
-Then run the schema (table definitions match the entity classes in `backend/.../entity/`).
+That's all. The tables are created by **Flyway** the first time the backend starts, from the versioned scripts in `backend/src/main/resources/db/migration/` (`V1__baseline.sql`, `V2__…`). Hibernate then only *validates* that the entities match the schema; it never changes it.
+
+Databases created before Flyway was added (the original local and Azure databases) are detected automatically. Flyway records V1 as the existing baseline and applies only the newer migrations, with no data changes.
+
+To change the schema, add a new `V<next>__description.sql` file. Never edit a migration that has already been applied.
 
 ### 2. Backend
-Create `backend/src/main/resources/application.properties` (not committed — see `.gitignore`):
+Shared, non-secret settings (Flyway, JPA, connection pool) live in the committed `backend/src/main/resources/application.yaml`.
+
+Create `backend/src/main/resources/application.properties` for your local secrets. It is not committed (see `.gitignore`), and its values override `application.yaml`:
 ```properties
 spring.datasource.url=jdbc:mysql://localhost:3306/placementhub_db
 spring.datasource.username=root
 spring.datasource.password=YOUR_MYSQL_PASSWORD
 spring.datasource.driver-class-name=com.mysql.cj.jdbc.Driver
 
-spring.jpa.hibernate.ddl-auto=validate
 spring.jpa.show-sql=true
 
+# At least 32 characters (HS256); the app refuses to start with a shorter secret
 app.jwt.secret=YOUR_JWT_SECRET
 app.jwt.expiration-ms=86400000
 
@@ -144,6 +150,25 @@ cd backend
 .\mvnw.cmd spring-boot:run   # Windows
 ```
 Runs on `http://localhost:8080`.
+
+### Running the backend tests
+```bash
+cd backend
+./mvnw test
+```
+- **Unit and web-layer security tests** need no database.
+- **`BackendApplicationTests`** starts the whole app against the database in your `application.properties`.
+- **MySQL integration tests** (`backend/src/test/java/.../it/`) cover Flyway migrations, transaction rollback and N+1 query counts. They run only when a dedicated, empty test database is configured, and are skipped otherwise:
+  ```sql
+  CREATE DATABASE placementhub_it;
+  ```
+  ```powershell
+  $env:PLACEMENTHUB_IT_DB_URL = "jdbc:mysql://localhost:3306/placementhub_it"
+  $env:PLACEMENTHUB_IT_DB_USER = "root"
+  $env:PLACEMENTHUB_IT_DB_PASSWORD = "YOUR_MYSQL_PASSWORD"
+  .\mvnw.cmd test
+  ```
+  As a safety check, they refuse to run unless the database name ends in `_it` or `_test`.
 
 ### 3. Frontend
 Create `frontend/.env`:
@@ -186,6 +211,7 @@ Both pipelines are fully automated — any push to `main` redeploys the affected
 **Key deployment details worth knowing:**
 - The backend's startup command is explicitly set (`java -jar /home/site/wwwroot/*.jar`) rather than relying on Azure's auto-detection, since the JAR isn't in the default expected path.
 - The Maven build step skips tests during CI (`-DskipTests`), since the test suite would otherwise try to load a Spring context requiring a live database connection that isn't available in the CI runner.
+- **Schema migrations run automatically on startup.** When the new JAR starts on App Service, Flyway applies any pending `db/migration` scripts to Azure MySQL before the app accepts traffic. The database user therefore needs permission to create tables and indexes. Migrations are forward-only: to undo one, ship a new migration. Take a backup (or rely on Azure's point-in-time restore) before deploying a release that contains a migration.
 - CORS on the backend explicitly allowlists the deployed frontend's origin — required since frontend and backend are hosted on separate Azure services with different domains.
 - `VITE_API_BASE_URL` is injected via a GitHub Actions secret at build time (not runtime), since Vite bakes environment variables into the built JS bundle.
 

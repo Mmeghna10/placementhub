@@ -3,16 +3,19 @@ package com.placementhub.backend.service;
 import com.placementhub.backend.exception.*;
 import com.placementhub.backend.dto.*;
 import com.placementhub.backend.entity.*;
+import com.placementhub.backend.mapper.ApplicationMapper;
+import com.placementhub.backend.mapper.JobMapper;
 import com.placementhub.backend.repository.*;
 import com.placementhub.backend.security.SecurityUtils;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
-import java.util.stream.Collectors;
 
 @Service
 @RequiredArgsConstructor
+@Transactional(readOnly = true)
 public class RecruiterService {
 
     private final RecruiterRepository recruiterRepository;
@@ -20,6 +23,8 @@ public class RecruiterService {
     private final JobRepository jobRepository;
     private final ApplicationRepository applicationRepository;
     private final ApplicationTimelineRepository timelineRepository;
+    private final JobMapper jobMapper;
+    private final ApplicationMapper applicationMapper;
 
     private Recruiter getCurrentRecruiter() {
         String email = SecurityUtils.getCurrentUserEmail();
@@ -31,6 +36,7 @@ public class RecruiterService {
         return mapToProfileResponse(getCurrentRecruiter());
     }
 
+    @Transactional
     public RecruiterProfileResponse updateProfile(RecruiterProfileUpdateRequest request) {
         Recruiter recruiter = getCurrentRecruiter();
 
@@ -64,6 +70,7 @@ public class RecruiterService {
         return mapToProfileResponse(recruiter);
     }
 
+    @Transactional
     public JobResponse createJob(JobRequest request) {
         Recruiter recruiter = getCurrentRecruiter();
 
@@ -78,16 +85,17 @@ public class RecruiterService {
         job.setStatus("PENDING");
 
         job = jobRepository.save(job);
-        return mapToJobResponse(job);
+        return jobMapper.toResponse(job);
     }
 
     public List<JobResponse> getMyJobs() {
         Recruiter recruiter = getCurrentRecruiter();
         return jobRepository.findByRecruiterId(recruiter.getId()).stream()
-                .map(this::mapToJobResponse)
-                .collect(Collectors.toList());
+                .map(jobMapper::toResponse)
+                .toList();
     }
 
+    @Transactional
     public JobResponse updateJob(Long jobId, JobRequest request) {
         Recruiter recruiter = getCurrentRecruiter();
         Job job = getOwnedJob(jobId, recruiter);
@@ -97,9 +105,10 @@ public class RecruiterService {
         // changed after moderation.
         job.setStatus("PENDING");
         job = jobRepository.save(job);
-        return mapToJobResponse(job);
+        return jobMapper.toResponse(job);
     }
 
+    @Transactional
     public void deleteJob(Long jobId) {
         Recruiter recruiter = getCurrentRecruiter();
         Job job = getOwnedJob(jobId, recruiter);
@@ -114,11 +123,11 @@ public class RecruiterService {
         Recruiter recruiter = getCurrentRecruiter();
         Job job = getOwnedJob(jobId, recruiter);
 
-        return applicationRepository.findByJobId(job.getId()).stream()
-                .map(this::mapToApplicationResponse)
-                .collect(Collectors.toList());
+        return applicationMapper.toResponses(applicationRepository.findByJobId(job.getId()));
     }
 
+    /** Status change and its timeline entry commit together (or not at all). */
+    @Transactional
     public ApplicationResponse updateApplicationStatus(Long applicationId, ApplicationStatusUpdateRequest request) {
         Recruiter recruiter = getCurrentRecruiter();
 
@@ -139,7 +148,7 @@ public class RecruiterService {
         entry.setRemarks(request.getRemarks());
         timelineRepository.save(entry);
 
-        return mapToApplicationResponse(application);
+        return applicationMapper.toResponse(application);
     }
 
     private Job getOwnedJob(Long jobId, Recruiter recruiter) {
@@ -181,53 +190,6 @@ public class RecruiterService {
             response.setCompanyIndustry(recruiter.getCompany().getIndustry());
             response.setCompanyLocation(recruiter.getCompany().getLocation());
         }
-
-        return response;
-    }
-
-    private JobResponse mapToJobResponse(Job job) {
-        JobResponse response = new JobResponse();
-        response.setId(job.getId());
-        response.setTitle(job.getTitle());
-        response.setDescription(job.getDescription());
-        response.setJobType(job.getJobType());
-        response.setLocation(job.getLocation());
-        response.setSalaryMin(job.getSalaryMin());
-        response.setSalaryMax(job.getSalaryMax());
-        response.setRequiredSkills(job.getRequiredSkills());
-        response.setMinCgpa(job.getMinCgpa());
-        response.setEligibleBranches(job.getEligibleBranches());
-        response.setApplicationDeadline(job.getApplicationDeadline());
-        response.setStatus(job.getStatus());
-        response.setCompanyName(job.getCompany().getName());
-        response.setCompanyId(job.getCompany().getId());
-        response.setRecruiterId(job.getRecruiter().getId());
-        response.setPostedAt(job.getPostedAt());
-        return response;
-    }
-
-    private ApplicationResponse mapToApplicationResponse(Application application) {
-        ApplicationResponse response = new ApplicationResponse();
-        response.setId(application.getId());
-        response.setJobId(application.getJob().getId());
-        response.setJobTitle(application.getJob().getTitle());
-        response.setCompanyName(application.getJob().getCompany().getName());
-        response.setStatus(application.getStatus());
-        response.setAppliedAt(application.getAppliedAt());
-        response.setUpdatedAt(application.getUpdatedAt());
-
-        List<TimelineEntryResponse> timeline = timelineRepository
-                .findByApplicationIdOrderByChangedAtAsc(application.getId())
-                .stream()
-                .map(t -> {
-                    TimelineEntryResponse te = new TimelineEntryResponse();
-                    te.setStatus(t.getStatus());
-                    te.setRemarks(t.getRemarks());
-                    te.setChangedAt(t.getChangedAt());
-                    return te;
-                })
-                .collect(Collectors.toList());
-        response.setTimeline(timeline);
 
         return response;
     }

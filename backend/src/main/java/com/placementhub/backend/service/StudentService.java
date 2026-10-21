@@ -3,22 +3,31 @@ package com.placementhub.backend.service;
 import com.placementhub.backend.exception.*;
 import com.placementhub.backend.dto.*;
 import com.placementhub.backend.entity.*;
+import com.placementhub.backend.mapper.ApplicationMapper;
+import com.placementhub.backend.mapper.JobMapper;
 import com.placementhub.backend.repository.*;
 import com.placementhub.backend.security.SecurityUtils;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
-import java.util.stream.Collectors;
 
+/**
+ * Reads run in a read-only transaction (class default); each write use case is one
+ * read-write transaction, so its inserts/updates commit or roll back together.
+ */
 @Service
 @RequiredArgsConstructor
+@Transactional(readOnly = true)
 public class StudentService {
 
     private final StudentRepository studentRepository;
     private final JobRepository jobRepository;
     private final ApplicationRepository applicationRepository;
     private final ApplicationTimelineRepository timelineRepository;
+    private final JobMapper jobMapper;
+    private final ApplicationMapper applicationMapper;
 
     private Student getCurrentStudent() {
         String email = SecurityUtils.getCurrentUserEmail();
@@ -30,6 +39,7 @@ public class StudentService {
         return mapToProfileResponse(getCurrentStudent());
     }
 
+    @Transactional
     public StudentProfileResponse updateProfile(StudentProfileUpdateRequest request) {
         Student student = getCurrentStudent();
 
@@ -52,16 +62,16 @@ public class StudentService {
 
     public List<JobResponse> getApprovedJobs() {
         return jobRepository.findByStatus("APPROVED").stream()
-                .map(this::mapToJobResponse)
-                .collect(Collectors.toList());
+                .map(jobMapper::toResponse)
+                .toList();
     }
 
     public List<JobResponse> getRecommendedJobs() {
         Student student = getCurrentStudent();
         return jobRepository.findByStatus("APPROVED").stream()
                 .filter(job -> matchesStudent(job, student))
-                .map(this::mapToJobResponse)
-                .collect(Collectors.toList());
+                .map(jobMapper::toResponse)
+                .toList();
     }
 
     private boolean matchesStudent(Job job, Student student) {
@@ -75,6 +85,12 @@ public class StudentService {
         return cgpaOk && branchOk;
     }
 
+    /**
+     * Application and its first timeline entry are written in one transaction.
+     * The duplicate check below is still racy under concurrent requests; Milestone 4 adds
+     * the UNIQUE(student_id, job_id) constraint that closes it.
+     */
+    @Transactional
     public ApplicationResponse applyToJob(Long jobId) {
         Student student = getCurrentStudent();
 
@@ -100,14 +116,12 @@ public class StudentService {
         timelineEntry.setRemarks("Application submitted");
         timelineRepository.save(timelineEntry);
 
-        return mapToApplicationResponse(application);
+        return applicationMapper.toResponse(application);
     }
 
     public List<ApplicationResponse> getMyApplications() {
         Student student = getCurrentStudent();
-        return applicationRepository.findByStudentId(student.getId()).stream()
-                .map(this::mapToApplicationResponse)
-                .collect(Collectors.toList());
+        return applicationMapper.toResponses(applicationRepository.findByStudentId(student.getId()));
     }
 
     public ApplicationResponse getApplicationDetails(Long applicationId) {
@@ -120,7 +134,7 @@ public class StudentService {
             throw new NotFoundException("Application not found");
         }
 
-        return mapToApplicationResponse(application);
+        return applicationMapper.toResponse(application);
     }
 
     private StudentProfileResponse mapToProfileResponse(Student student) {
@@ -139,53 +153,6 @@ public class StudentService {
         response.setLinkedinUrl(student.getLinkedinUrl());
         response.setGithubUrl(student.getGithubUrl());
         response.setProfileCompleted(student.getProfileCompleted());
-        return response;
-    }
-
-    private JobResponse mapToJobResponse(Job job) {
-        JobResponse response = new JobResponse();
-        response.setId(job.getId());
-        response.setTitle(job.getTitle());
-        response.setDescription(job.getDescription());
-        response.setJobType(job.getJobType());
-        response.setLocation(job.getLocation());
-        response.setSalaryMin(job.getSalaryMin());
-        response.setSalaryMax(job.getSalaryMax());
-        response.setRequiredSkills(job.getRequiredSkills());
-        response.setMinCgpa(job.getMinCgpa());
-        response.setEligibleBranches(job.getEligibleBranches());
-        response.setApplicationDeadline(job.getApplicationDeadline());
-        response.setStatus(job.getStatus());
-        response.setCompanyName(job.getCompany().getName());
-        response.setCompanyId(job.getCompany().getId());
-        response.setRecruiterId(job.getRecruiter().getId());
-        response.setPostedAt(job.getPostedAt());
-        return response;
-    }
-
-    private ApplicationResponse mapToApplicationResponse(Application application) {
-        ApplicationResponse response = new ApplicationResponse();
-        response.setId(application.getId());
-        response.setJobId(application.getJob().getId());
-        response.setJobTitle(application.getJob().getTitle());
-        response.setCompanyName(application.getJob().getCompany().getName());
-        response.setStatus(application.getStatus());
-        response.setAppliedAt(application.getAppliedAt());
-        response.setUpdatedAt(application.getUpdatedAt());
-
-        List<TimelineEntryResponse> timeline = timelineRepository
-                .findByApplicationIdOrderByChangedAtAsc(application.getId())
-                .stream()
-                .map(t -> {
-                    TimelineEntryResponse te = new TimelineEntryResponse();
-                    te.setStatus(t.getStatus());
-                    te.setRemarks(t.getRemarks());
-                    te.setChangedAt(t.getChangedAt());
-                    return te;
-                })
-                .collect(Collectors.toList());
-        response.setTimeline(timeline);
-
         return response;
     }
 }
