@@ -35,3 +35,6 @@ Thumbs.db
 # ---- Logs ----
 *.log
 npm-debug.log*
+# ---- Python (not part of this project) ----
+venv/
+__pycache__/

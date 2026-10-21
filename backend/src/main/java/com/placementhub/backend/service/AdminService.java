@@ -1,10 +1,15 @@
 package com.placementhub.backend.service;
 
+import com.placementhub.backend.exception.*;
 import com.placementhub.backend.dto.*;
 import com.placementhub.backend.entity.*;
 import com.placementhub.backend.repository.*;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
+
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Sort;
 
 import java.util.Arrays;
 import java.util.List;
@@ -13,6 +18,8 @@ import java.util.stream.Collectors;
 @Service
 @RequiredArgsConstructor
 public class AdminService {
+
+    static final int MAX_PAGE_SIZE = 100;
 
     private final StudentRepository studentRepository;
     private final RecruiterRepository recruiterRepository;
@@ -31,22 +38,26 @@ public class AdminService {
         );
     }
 
-    public List<StudentSummaryResponse> getAllStudents() {
-        return studentRepository.findAll().stream()
-                .map(this::mapToStudentSummary)
-                .collect(Collectors.toList());
+    public PageResponse<StudentSummaryResponse> getAllStudents(int page, int size) {
+        return PageResponse.from(studentRepository.findAll(newestFirst(page, size))
+                .map(this::mapToStudentSummary));
     }
 
-    public List<RecruiterSummaryResponse> getAllRecruiters() {
-        return recruiterRepository.findAll().stream()
-                .map(this::mapToRecruiterSummary)
-                .collect(Collectors.toList());
+    public PageResponse<RecruiterSummaryResponse> getAllRecruiters(int page, int size) {
+        return PageResponse.from(recruiterRepository.findAll(newestFirst(page, size))
+                .map(this::mapToRecruiterSummary));
     }
 
-    public List<JobResponse> getAllJobs() {
-        return jobRepository.findAll().stream()
-                .map(this::mapToJobResponse)
-                .collect(Collectors.toList());
+    public PageResponse<JobResponse> getAllJobs(int page, int size) {
+        return PageResponse.from(jobRepository.findAll(newestFirst(page, size))
+                .map(this::mapToJobResponse));
+    }
+
+    /** Clamps client-supplied paging so a request cannot ask for an unbounded page. */
+    private Pageable newestFirst(int page, int size) {
+        int safePage = Math.max(page, 0);
+        int safeSize = Math.min(Math.max(size, 1), MAX_PAGE_SIZE);
+        return PageRequest.of(safePage, safeSize, Sort.by("id").descending());
     }
 
     public List<JobResponse> getPendingJobs() {
@@ -55,9 +66,11 @@ public class AdminService {
                 .collect(Collectors.toList());
     }
 
+
+
     public JobResponse updateJobApproval(Long jobId, JobApprovalRequest request) {
         Job job = jobRepository.findById(jobId)
-                .orElseThrow(() -> new RuntimeException("Job not found"));
+                .orElseThrow(() -> new NotFoundException("Job not found"));
 
         job.setStatus(request.getStatus());
         job = jobRepository.save(job);

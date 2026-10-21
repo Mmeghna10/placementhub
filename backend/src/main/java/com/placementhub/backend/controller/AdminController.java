@@ -24,18 +24,24 @@ public class AdminController {
     }
 
     @GetMapping("/students")
-    public ResponseEntity<List<StudentSummaryResponse>> getStudents() {
-        return ResponseEntity.ok(adminService.getAllStudents());
+    public ResponseEntity<PageResponse<StudentSummaryResponse>> getStudents(
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "20") int size) {
+        return ResponseEntity.ok(adminService.getAllStudents(page, size));
     }
 
     @GetMapping("/recruiters")
-    public ResponseEntity<List<RecruiterSummaryResponse>> getRecruiters() {
-        return ResponseEntity.ok(adminService.getAllRecruiters());
+    public ResponseEntity<PageResponse<RecruiterSummaryResponse>> getRecruiters(
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "20") int size) {
+        return ResponseEntity.ok(adminService.getAllRecruiters(page, size));
     }
 
     @GetMapping("/jobs")
-    public ResponseEntity<List<JobResponse>> getAllJobs() {
-        return ResponseEntity.ok(adminService.getAllJobs());
+    public ResponseEntity<PageResponse<JobResponse>> getAllJobs(
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "20") int size) {
+        return ResponseEntity.ok(adminService.getAllJobs(page, size));
     }
 
     @GetMapping("/jobs/pending")

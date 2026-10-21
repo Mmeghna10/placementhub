@@ -1,5 +1,6 @@
 package com.placementhub.backend.service;
 
+import com.placementhub.backend.exception.*;
 import com.placementhub.backend.dto.*;
 import com.placementhub.backend.entity.*;
 import com.placementhub.backend.repository.*;
@@ -22,7 +23,7 @@ public class StudentService {
     private Student getCurrentStudent() {
         String email = SecurityUtils.getCurrentUserEmail();
         return studentRepository.findByUser_Email(email)
-                .orElseThrow(() -> new RuntimeException("Student profile not found"));
+                .orElseThrow(() -> new NotFoundException("Student profile not found"));
     }
 
     public StudentProfileResponse getProfile() {
@@ -78,14 +79,14 @@ public class StudentService {
         Student student = getCurrentStudent();
 
         Job job = jobRepository.findById(jobId)
-                .orElseThrow(() -> new RuntimeException("Job not found"));
+                .orElseThrow(() -> new NotFoundException("Job not found"));
 
         if (!"APPROVED".equals(job.getStatus())) {
-            throw new RuntimeException("This job is not open for applications");
+            throw new BusinessRuleException("JOB_NOT_OPEN", "This job is not open for applications");
         }
 
         if (applicationRepository.existsByStudentIdAndJobId(student.getId(), jobId)) {
-            throw new RuntimeException("You have already applied to this job");
+            throw new ConflictException("APPLICATION_ALREADY_EXISTS", "You have already applied to this job");
         }
 
         Application application = new Application();
@@ -113,10 +114,10 @@ public class StudentService {
         Student student = getCurrentStudent();
 
         Application application = applicationRepository.findById(applicationId)
-                .orElseThrow(() -> new RuntimeException("Application not found"));
+                .orElseThrow(() -> new NotFoundException("Application not found"));
 
         if (!application.getStudent().getId().equals(student.getId())) {
-            throw new RuntimeException("You do not have access to this application");
+            throw new NotFoundException("Application not found");
         }
 
         return mapToApplicationResponse(application);

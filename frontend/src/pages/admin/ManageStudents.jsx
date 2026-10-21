@@ -2,15 +2,29 @@ import { useEffect, useState } from 'react';
 import DashboardLayout from '../../components/DashboardLayout';
 import LoadingState from '../../components/LoadingState';
 import EmptyState from '../../components/EmptyState';
+import Pagination from '../../components/Pagination';
 import { getAllStudents } from '../../api/adminApi';
 
 export default function ManageStudents() {
   const [students, setStudents] = useState([]);
+  const [pageInfo, setPageInfo] = useState({ page: 0, totalPages: 0, totalElements: 0 });
+  const [page, setPage] = useState(0);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    getAllStudents().then((res) => setStudents(res.data)).finally(() => setLoading(false));
-  }, []);
+    getAllStudents(page)
+      .then((res) => {
+        const { content, ...info } = res.data;
+        setStudents(content);
+        setPageInfo(info);
+      })
+      .finally(() => setLoading(false));
+  }, [page]);
+
+  const handlePageChange = (next) => {
+    setLoading(true);
+    setPage(next);
+  };
 
   return (
     <DashboardLayout>
@@ -48,6 +62,7 @@ export default function ManageStudents() {
             </table>
           </div>
         )}
+        <Pagination {...pageInfo} onPageChange={handlePageChange} disabled={loading} />
       </div>
     </DashboardLayout>
   );

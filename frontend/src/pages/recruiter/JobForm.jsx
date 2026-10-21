@@ -65,6 +65,11 @@ export default function JobForm() {
         {isEdit ? 'Edit Job' : 'Post a New Job'}
       </h1>
       <div className="mt-1 w-12 border-t border-ink/30" />
+      {isEdit && (
+        <p className="mt-4 text-sm text-slate">
+          Saving changes sends this job back to the placement cell for approval.
+        </p>
+      )}
 
       <form onSubmit={handleSubmit} className="mt-8 max-w-2xl bg-white border border-ink/10 rounded-lg p-6 space-y-5">
         <div>

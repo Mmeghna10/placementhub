@@ -24,7 +24,7 @@ public class RecruiterController {
     }
 
     @PutMapping("/profile")
-    public ResponseEntity<RecruiterProfileResponse> updateProfile(@RequestBody RecruiterProfileUpdateRequest request) {
+    public ResponseEntity<RecruiterProfileResponse> updateProfile(@Valid @RequestBody RecruiterProfileUpdateRequest request) {
         return ResponseEntity.ok(recruiterService.updateProfile(request));
     }
 

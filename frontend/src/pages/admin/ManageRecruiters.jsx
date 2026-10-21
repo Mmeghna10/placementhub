@@ -2,15 +2,29 @@ import { useEffect, useState } from 'react';
 import DashboardLayout from '../../components/DashboardLayout';
 import LoadingState from '../../components/LoadingState';
 import EmptyState from '../../components/EmptyState';
+import Pagination from '../../components/Pagination';
 import { getAllRecruiters } from '../../api/adminApi';
 
 export default function ManageRecruiters() {
   const [recruiters, setRecruiters] = useState([]);
+  const [pageInfo, setPageInfo] = useState({ page: 0, totalPages: 0, totalElements: 0 });
+  const [page, setPage] = useState(0);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    getAllRecruiters().then((res) => setRecruiters(res.data)).finally(() => setLoading(false));
-  }, []);
+    getAllRecruiters(page)
+      .then((res) => {
+        const { content, ...info } = res.data;
+        setRecruiters(content);
+        setPageInfo(info);
+      })
+      .finally(() => setLoading(false));
+  }, [page]);
+
+  const handlePageChange = (next) => {
+    setLoading(true);
+    setPage(next);
+  };
 
   return (
     <DashboardLayout>
@@ -46,6 +60,7 @@ export default function ManageRecruiters() {
             </table>
           </div>
         )}
+        <Pagination {...pageInfo} onPageChange={handlePageChange} disabled={loading} />
       </div>
     </DashboardLayout>
   );

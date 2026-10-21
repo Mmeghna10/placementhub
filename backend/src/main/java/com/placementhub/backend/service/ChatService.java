@@ -1,25 +1,32 @@
 package com.placementhub.backend.service;
 
+import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.placementhub.backend.dto.ChatMessageDto;
+import com.placementhub.backend.exception.ServiceUnavailableException;
 import com.placementhub.backend.security.SecurityUtils;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpEntity;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
 import org.springframework.stereotype.Service;
-import org.springframework.web.client.HttpClientErrorException;
-import org.springframework.web.client.HttpServerErrorException;
+import org.springframework.web.client.HttpStatusCodeException;
+import org.springframework.web.client.ResourceAccessException;
 import org.springframework.web.client.RestTemplate;
 
 import java.util.*;
 import java.util.stream.Collectors;
 
+@Slf4j
 @Service
 @RequiredArgsConstructor
 public class ChatService {
+
+    private static final String ASSISTANT_UNAVAILABLE =
+            "The assistant is unavailable right now. Please try again in a moment.";
 
     private final RestTemplate restTemplate;
     private final ObjectMapper objectMapper;
@@ -34,8 +41,10 @@ public class ChatService {
         String role = SecurityUtils.getCurrentUserRole();
         String systemPrompt = buildSystemPrompt(role);
 
+        // The key goes in a header, not the query string, so it never appears in URLs
+        // that proxies or access logs may record.
         String url = "https://generativelanguage.googleapis.com/v1beta/models/"
-                + model + ":generateContent?key=" + apiKey;
+                + model + ":generateContent";
 
         List<Map<String, Object>> contents = messages.stream()
                 .map(m -> {
@@ -58,29 +67,34 @@ public class ChatService {
 
         HttpHeaders headers = new HttpHeaders();
         headers.setContentType(MediaType.APPLICATION_JSON);
+        headers.set("x-goog-api-key", apiKey);
         HttpEntity<Map<String, Object>> request = new HttpEntity<>(body, headers);
 
+        // Upstream details are logged for us but never returned to the client.
+        String rawResponse;
         try {
             // Get the raw response as plain text first — avoids RestTemplate's
             // automatic type conversion, which is where the Jackson conflict occurs
-            String rawResponse = restTemplate.postForObject(url, request, String.class);
+            rawResponse = restTemplate.postForObject(url, request, String.class);
+        } catch (HttpStatusCodeException e) {
+            log.warn("Gemini API returned {}", e.getStatusCode());
+            throw new ServiceUnavailableException(ASSISTANT_UNAVAILABLE);
+        } catch (ResourceAccessException e) {
+            log.warn("Gemini API unreachable or timed out: {}", e.getMessage());
+            throw new ServiceUnavailableException(ASSISTANT_UNAVAILABLE);
+        }
 
-            JsonNode response = objectMapper.readTree(rawResponse);
-
-            if (response == null || !response.has("candidates")) {
-                throw new RuntimeException("Gemini returned no candidates: " + rawResponse);
+        try {
+            JsonNode text = objectMapper.readTree(rawResponse)
+                    .path("candidates").path(0).path("content").path("parts").path(0).path("text");
+            if (text.isMissingNode() || text.asText().isBlank()) {
+                log.warn("Gemini response had no candidate text");
+                throw new ServiceUnavailableException(ASSISTANT_UNAVAILABLE);
             }
-
-            return response.get("candidates").get(0)
-                    .get("content").get("parts").get(0)
-                    .get("text").asText();
-
-        } catch (HttpClientErrorException | HttpServerErrorException e) {
-            System.err.println("GEMINI API ERROR: " + e.getStatusCode() + " - " + e.getResponseBodyAsString());
-            throw new RuntimeException("Gemini API error: " + e.getResponseBodyAsString());
-        } catch (Exception e) {
-            System.err.println("CHAT PARSE ERROR: " + e.getMessage());
-            throw new RuntimeException("Could not process assistant response: " + e.getMessage());
+            return text.asText();
+        } catch (JsonProcessingException e) {
+            log.warn("Could not parse Gemini response: {}", e.getOriginalMessage());
+            throw new ServiceUnavailableException(ASSISTANT_UNAVAILABLE);
         }
     }
 

@@ -1,5 +1,6 @@
 package com.placementhub.backend.service;
 
+import com.placementhub.backend.exception.*;
 import com.placementhub.backend.dto.*;
 import com.placementhub.backend.entity.*;
 import com.placementhub.backend.enums.Role;
@@ -23,8 +24,14 @@ public class AuthService {
     private final AuthenticationManager authenticationManager;
 
     public AuthResponse register(RegisterRequest request) {
+        // Also enforced by RegisterRequest validation; repeated here so the rule holds even if
+        // this service is called from somewhere that skips @Valid.
+        if (request.getRole() != Role.STUDENT && request.getRole() != Role.RECRUITER) {
+            throw new ForbiddenException("Only STUDENT or RECRUITER accounts can be registered");
+        }
+
         if (userRepository.existsByEmail(request.getEmail())) {
-            throw new RuntimeException("Email already registered");
+            throw new ConflictException("EMAIL_ALREADY_REGISTERED", "Email already registered");
         }
 
         User user = new User();
@@ -55,7 +62,7 @@ public class AuthService {
         );
 
         User user = userRepository.findByEmail(request.getEmail())
-                .orElseThrow(() -> new RuntimeException("User not found"));
+                .orElseThrow(() -> new NotFoundException("User not found"));
 
         String token = jwtUtil.generateToken(user.getEmail(), user.getRole().name());
         return new AuthResponse(token, user.getEmail(), user.getRole().name());

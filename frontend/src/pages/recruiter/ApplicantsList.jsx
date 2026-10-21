@@ -29,6 +29,8 @@ export default function ApplicantsList() {
     try {
       await updateApplicationStatus(applicationId, { status: newStatus, remarks: '' });
       fetchApplicants();
+    } catch (err) {
+      alert(err.response?.data?.error || 'Could not update the application status');
     } finally {
       setUpdatingId(null);
     }

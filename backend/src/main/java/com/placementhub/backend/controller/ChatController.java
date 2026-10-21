@@ -1,5 +1,6 @@
 package com.placementhub.backend.controller;
 
+import jakarta.validation.Valid;
 import com.placementhub.backend.dto.ChatRequest;
 import com.placementhub.backend.dto.ChatResponse;
 import com.placementhub.backend.service.ChatService;
@@ -15,7 +16,7 @@ public class ChatController {
     private final ChatService chatService;
 
     @PostMapping
-    public ResponseEntity<ChatResponse> chat(@RequestBody ChatRequest request) {
+    public ResponseEntity<ChatResponse> chat(@Valid @RequestBody ChatRequest request) {
         String reply = chatService.getReply(request.getMessages());
         return ResponseEntity.ok(new ChatResponse(reply));
     }
