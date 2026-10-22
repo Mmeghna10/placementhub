@@ -24,7 +24,7 @@ public class JobMapper {
         response.setMinCgpa(job.getMinCgpa());
         response.setEligibleBranches(job.getEligibleBranches());
         response.setApplicationDeadline(job.getApplicationDeadline());
-        response.setStatus(job.getStatus());
+        response.setStatus(job.getStatus().name());
         response.setCompanyName(job.getCompany().getName());
         response.setCompanyId(job.getCompany().getId());
         response.setRecruiterId(job.getRecruiter().getId());

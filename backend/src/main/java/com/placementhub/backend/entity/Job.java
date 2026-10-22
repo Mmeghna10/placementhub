@@ -1,5 +1,6 @@
 package com.placementhub.backend.entity;
 
+import com.placementhub.backend.enums.JobStatus;
 import jakarta.persistence.*;
 import lombok.Data;
 import lombok.EqualsAndHashCode;
@@ -58,7 +59,12 @@ public class Job {
     @Column(name = "application_deadline")
     private LocalDate applicationDeadline;
 
-    private String status = "PENDING";
+    @Enumerated(EnumType.STRING)
+    private JobStatus status = JobStatus.PENDING;
+
+    /** Optimistic lock against two concurrent edits/approvals of the same job. */
+    @Version
+    private Long version;
 
     @Column(name = "posted_at", updatable = false)
     private LocalDateTime postedAt = LocalDateTime.now();

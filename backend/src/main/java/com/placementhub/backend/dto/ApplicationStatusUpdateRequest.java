@@ -7,7 +7,8 @@ import lombok.Data;
 
 @Data
 public class ApplicationStatusUpdateRequest {
-    // Restricts the allowed values only; which transitions are legal is enforced in Milestone 4.
+    // Only known values pass validation; whether the move is allowed from the current
+    // status is checked by ApplicationStatus.canMoveTo in the service.
     @NotBlank(message = "Status is required")
     @Pattern(regexp = "APPLIED|SHORTLISTED|INTERVIEW|OFFERED|REJECTED",
             message = "Status must be one of APPLIED, SHORTLISTED, INTERVIEW, OFFERED, REJECTED")
@@ -15,4 +16,10 @@ public class ApplicationStatusUpdateRequest {
 
     @Size(max = 255, message = "Remarks must be at most 255 characters")
     private String remarks;
+
+    /**
+     * The application version the client last saw. Optional for older clients; when sent,
+     * a different current version is rejected with 409 instead of overwriting.
+     */
+    private Long version;
 }

@@ -20,6 +20,7 @@ import CompanyProfile from './pages/recruiter/CompanyProfile';
 import MyJobs from './pages/recruiter/MyJobs';
 import JobForm from './pages/recruiter/JobForm';
 import ApplicantsList from './pages/recruiter/ApplicantsList';
+import InterviewSlots from './pages/recruiter/InterviewSlots';
 
 import ManageStudents from './pages/admin/ManageStudents';
 import ManageRecruiters from './pages/admin/ManageRecruiters';
@@ -102,6 +103,9 @@ function App() {
           } />
           <Route path="/recruiter/jobs/:jobId/applicants" element={
             <ProtectedRoute allowedRole="RECRUITER"><ApplicantsList /></ProtectedRoute>
+          } />
+          <Route path="/recruiter/jobs/:jobId/slots" element={
+            <ProtectedRoute allowedRole="RECRUITER"><InterviewSlots /></ProtectedRoute>
           } />
 
           {/* Unknown addresses go to the landing page instead of rendering nothing */}

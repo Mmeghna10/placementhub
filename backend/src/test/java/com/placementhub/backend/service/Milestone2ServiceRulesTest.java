@@ -7,6 +7,7 @@ import com.placementhub.backend.entity.Company;
 import com.placementhub.backend.entity.Job;
 import com.placementhub.backend.entity.Recruiter;
 import com.placementhub.backend.entity.User;
+import com.placementhub.backend.enums.JobStatus;
 import com.placementhub.backend.enums.Role;
 import com.placementhub.backend.exception.BusinessRuleException;
 import com.placementhub.backend.exception.ConflictException;
@@ -34,6 +35,7 @@ import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.test.util.ReflectionTestUtils;
 
+import java.time.Clock;
 import java.util.List;
 import java.util.Optional;
 
@@ -94,6 +96,8 @@ class Milestone2ServiceRulesTest {
         @Mock ApplicationTimelineRepository timelineRepository;
         @Spy JobMapper jobMapper = new JobMapper();
         @Mock ApplicationMapper applicationMapper;
+        @Mock InterviewSlotRepository slotRepository;
+        @Mock Clock clock;
         @InjectMocks RecruiterService recruiterService;
 
         private Recruiter recruiter;
@@ -116,7 +120,7 @@ class Milestone2ServiceRulesTest {
             SecurityContextHolder.clearContext();
         }
 
-        private Job ownedJob(String status) {
+        private Job ownedJob(JobStatus status) {
             Company company = new Company();
             company.setId(5L);
             company.setName("Acme");
@@ -130,9 +134,9 @@ class Milestone2ServiceRulesTest {
 
         @Test
         void editingAnApprovedJobSendsItBackForReview() {
-            Job job = ownedJob("APPROVED");
+            Job job = ownedJob(JobStatus.APPROVED);
             when(jobRepository.findById(10L)).thenReturn(Optional.of(job));
-            when(jobRepository.save(any(Job.class))).thenAnswer(inv -> inv.getArgument(0));
+            when(jobRepository.saveAndFlush(any(Job.class))).thenAnswer(inv -> inv.getArgument(0));
 
             JobRequest request = new JobRequest();
             request.setTitle("Edited title");
@@ -144,7 +148,7 @@ class Milestone2ServiceRulesTest {
         void anotherRecruitersJobLooksLikeItDoesNotExist() {
             Recruiter other = new Recruiter();
             other.setId(2L);
-            Job job = ownedJob("APPROVED");
+            Job job = ownedJob(JobStatus.APPROVED);
             job.setRecruiter(other);
             when(jobRepository.findById(10L)).thenReturn(Optional.of(job));
 
@@ -155,7 +159,7 @@ class Milestone2ServiceRulesTest {
 
         @Test
         void jobWithApplicationsCannotBeDeleted() {
-            when(jobRepository.findById(10L)).thenReturn(Optional.of(ownedJob("APPROVED")));
+            when(jobRepository.findById(10L)).thenReturn(Optional.of(ownedJob(JobStatus.APPROVED)));
             when(applicationRepository.existsByJobId(10L)).thenReturn(true);
 
             assertThatThrownBy(() -> recruiterService.deleteJob(10L))

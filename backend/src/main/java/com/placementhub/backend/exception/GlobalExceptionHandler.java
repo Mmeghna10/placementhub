@@ -3,6 +3,8 @@ package com.placementhub.backend.exception;
 import jakarta.servlet.http.HttpServletRequest;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.dao.DataIntegrityViolationException;
+import org.springframework.dao.OptimisticLockingFailureException;
+import org.springframework.dao.PessimisticLockingFailureException;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.http.converter.HttpMessageNotReadableException;
@@ -68,6 +70,23 @@ public class GlobalExceptionHandler {
     @ExceptionHandler(AccessDeniedException.class)
     public ResponseEntity<ErrorResponse> handleAccessDenied(AccessDeniedException ex, HttpServletRequest request) {
         return build(HttpStatus.FORBIDDEN, "ACCESS_DENIED", "You do not have permission to perform this action", request);
+    }
+
+    // @Version mismatch: another request updated the same row between our read and write.
+    @ExceptionHandler(OptimisticLockingFailureException.class)
+    public ResponseEntity<ErrorResponse> handleOptimisticLock(OptimisticLockingFailureException ex,
+                                                              HttpServletRequest request) {
+        return build(HttpStatus.CONFLICT, "CONCURRENT_UPDATE",
+                "This record was changed by someone else at the same time. Refresh and try again.", request);
+    }
+
+    // Lock wait timeout or deadlock victim: the other transaction won; retrying is safe.
+    @ExceptionHandler(PessimisticLockingFailureException.class)
+    public ResponseEntity<ErrorResponse> handlePessimisticLock(PessimisticLockingFailureException ex,
+                                                               HttpServletRequest request) {
+        log.warn("Lock conflict on {}: {}", request.getRequestURI(), ex.getMostSpecificCause().getMessage());
+        return build(HttpStatus.CONFLICT, "LOCK_CONFLICT",
+                "The system was busy with a conflicting change. Please try again.", request);
     }
 
     @ExceptionHandler(DataIntegrityViolationException.class)

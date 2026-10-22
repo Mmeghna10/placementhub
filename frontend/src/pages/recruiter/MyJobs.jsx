@@ -4,8 +4,8 @@ import DashboardLayout from '../../components/DashboardLayout';
 import LoadingState from '../../components/LoadingState';
 import EmptyState from '../../components/EmptyState';
 import StatusBadge from '../../components/StatusBadge';
-import { getMyJobs, deleteJob } from '../../api/recruiterApi';
-import { Plus, Trash2, Pencil, Users } from 'lucide-react';
+import { getMyJobs, deleteJob, closeJob } from '../../api/recruiterApi';
+import { Plus, Trash2, Pencil, Users, CalendarClock, Lock } from 'lucide-react';
 
 export default function MyJobs() {
   const [jobs, setJobs] = useState([]);
@@ -30,6 +30,18 @@ export default function MyJobs() {
       fetchJobs();
     } catch (err) {
       alert(err.response?.data?.error || 'Could not delete this job');
+    }
+  };
+
+  const handleClose = async (id, e) => {
+    e.stopPropagation();
+    e.preventDefault();
+    if (!confirm('Stop accepting new applications for this job? Existing applicants are kept.')) return;
+    try {
+      await closeJob(id);
+      fetchJobs();
+    } catch (err) {
+      alert(err.response?.data?.error || 'Could not close this job');
     }
   };
 
@@ -77,6 +89,23 @@ export default function MyJobs() {
                   >
                     <Users size={16} />
                   </Link>
+                  <Link
+                    to={`/recruiter/jobs/${job.id}/slots`}
+                    onClick={(e) => e.stopPropagation()}
+                    className="p-1.5 text-slate hover:text-teal transition"
+                    title="Interview slots"
+                  >
+                    <CalendarClock size={16} />
+                  </Link>
+                  {job.status === 'APPROVED' && (
+                    <button
+                      onClick={(e) => handleClose(job.id, e)}
+                      className="p-1.5 text-slate hover:text-ink transition"
+                      title="Close applications"
+                    >
+                      <Lock size={16} />
+                    </button>
+                  )}
                   <Link
                     to={`/recruiter/jobs/${job.id}/edit`}
                     onClick={(e) => e.stopPropagation()}

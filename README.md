@@ -19,15 +19,18 @@ A full-stack campus placement portal connecting students, recruiters, and placem
 
 ### Student
 - View and edit profile (college, branch, CGPA, skills, resume/LinkedIn/GitHub links)
-- Browse all approved jobs, or filter to **Recommended** jobs matched by CGPA and branch
-- View full job details and apply in one click
+- Browse open jobs (approved and not past their deadline), or filter to **Recommended** jobs they are eligible for
+- View full job details and apply in one click. The server enforces the deadline, minimum CGPA, eligible branches and one application per job, even under simultaneous clicks.
 - Track every application with a dated status timeline (Applied → Shortlisted → Interview → Offered/Rejected)
+- **Book an interview slot** once an application reaches Interview, and cancel it before it starts
 
 ### Recruiter
 - Separate personal profile and company profile pages
-- Post, edit, and delete job listings
-- View applicants per job and update their status
-- New jobs start as `PENDING` until admin approval
+- Post, edit, delete and **close** job listings (closing stops new applications)
+- View applicants per job with their profile (college, branch, CGPA, skills, resume/LinkedIn/GitHub)
+- Move applications only along allowed steps. If two people update the same application at once, the second gets a "refresh" message instead of silently overwriting.
+- **Publish interview slots** with a capacity; a slot can never be overbooked
+- New and edited jobs start as `PENDING` until admin approval
 
 ### Admin
 - Dashboard with live counts (students, recruiters, companies, jobs, pending approvals, applications)
@@ -229,11 +232,27 @@ Both pipelines are fully automated — any push to `main` redeploys the affected
 
 All protected endpoints expect `Authorization: Bearer <token>`.
 
+**Interview slots and job closing (Milestone 4):**
+
+| Method | Path | Who | Notes |
+|---|---|---|---|
+| `POST` | `/api/recruiter/jobs/{id}/close` | Recruiter (owner) | Stops new applications |
+| `GET` / `POST` | `/api/recruiter/jobs/{jobId}/slots` | Recruiter (owner) | List with bookings / create (`201`) |
+| `DELETE` | `/api/recruiter/jobs/{jobId}/slots/{slotId}` | Recruiter (owner) | `409` if already booked |
+| `GET` | `/api/students/applications/{id}/slots` | Student (owner) | Only in `INTERVIEW` stage |
+| `POST` | `/api/students/applications/{id}/slots/{slotId}/booking` | Student (owner) | `201`; `409 SLOT_FULL` / `ALREADY_BOOKED` |
+| `DELETE` | `/api/students/applications/{id}/booking` | Student (owner) | Cancel before the slot starts |
+
+Errors use one JSON shape: `{ "error": "…", "status": 409, "code": "SLOT_FULL", "path": "…", "timestamp": "…" }`.
+
+### Concurrency and data consistency
+Duplicate applications, applications racing a job closure, overbooked interview slots and conflicting status updates are all prevented in the database. Each case is proven by tests that fire 20 simultaneous requests at real MySQL. See **[docs/concurrency.md](docs/concurrency.md)**.
+
 ---
 
 ## Known Limitations
 
-- **Branch matching for Recommended Jobs** is literal substring matching between the student's `branch` field and a job's `eligibleBranches` field, both free text. This means wording differences (e.g. "Computer Applications" vs "MCA") won't match even when they mean the same thing. A future version would replace free text with a shared enum/dropdown for both student profiles and job postings.
+- **Branch matching for eligibility and Recommended Jobs** is literal substring matching between the student's `branch` field and a job's `eligibleBranches` field, both free text. This means wording differences (e.g. "Computer Applications" vs "MCA") won't match even when they mean the same thing. A future version would replace free text with a shared enum/dropdown for both student profiles and job postings.
 - **Admin accounts** are provisioned manually via direct database update rather than an admin-invite flow.
 - **No password reset flow** yet.
 - **Backend cold starts:** on the free/basic App Service tier, the app spins down after inactivity and takes 10–20 seconds to respond to the first request after idle time.
