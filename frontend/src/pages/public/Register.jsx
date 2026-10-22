@@ -31,11 +31,7 @@ export default function Register() {
       if (role === 'STUDENT') navigate('/student/dashboard');
       else if (role === 'RECRUITER') navigate('/recruiter/dashboard');
     } catch (err) {
-      const errData = err.response?.data;
-      const message = typeof errData === 'object' && errData !== null
-        ? Object.values(errData)[0]
-        : 'Registration failed';
-      setError(message);
+      setError(err.response?.data?.error || 'Registration failed');
     } finally {
       setLoading(false);
     }

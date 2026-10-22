@@ -1,5 +1,6 @@
 package com.placementhub.backend.service;
 
+import com.placementhub.backend.exception.*;
 import com.placementhub.backend.dto.*;
 import com.placementhub.backend.entity.*;
 import com.placementhub.backend.repository.*;
@@ -23,7 +24,7 @@ public class RecruiterService {
     private Recruiter getCurrentRecruiter() {
         String email = SecurityUtils.getCurrentUserEmail();
         return recruiterRepository.findByUser_Email(email)
-                .orElseThrow(() -> new RuntimeException("Recruiter profile not found"));
+                .orElseThrow(() -> new NotFoundException("Recruiter profile not found"));
     }
 
     public RecruiterProfileResponse getProfile() {
@@ -37,18 +38,27 @@ public class RecruiterService {
         recruiter.setPhone(request.getPhone());
         recruiter.setDesignation(request.getDesignation());
 
+        // The personal-profile page sends company fields too (empty before a company exists).
+        // Only create a company once a name is given; never blank out an existing company's name,
+        // since companies.name is NOT NULL.
+        boolean hasCompanyName = request.getCompanyName() != null && !request.getCompanyName().isBlank();
         Company company = recruiter.getCompany();
-        if (company == null) {
+        if (company == null && hasCompanyName) {
             company = new Company();
+        } else if (company != null && !hasCompanyName) {
+            throw new BusinessRuleException("COMPANY_NAME_REQUIRED", "Company name is required");
         }
-        company.setName(request.getCompanyName());
-        company.setDescription(request.getCompanyDescription());
-        company.setWebsite(request.getCompanyWebsite());
-        company.setIndustry(request.getCompanyIndustry());
-        company.setLocation(request.getCompanyLocation());
-        company = companyRepository.save(company);
 
-        recruiter.setCompany(company);
+        if (company != null) {
+            company.setName(request.getCompanyName().trim());
+            company.setDescription(request.getCompanyDescription());
+            company.setWebsite(request.getCompanyWebsite());
+            company.setIndustry(request.getCompanyIndustry());
+            company.setLocation(request.getCompanyLocation());
+            company = companyRepository.save(company);
+            recruiter.setCompany(company);
+        }
+
         recruiter = recruiterRepository.save(recruiter);
 
         return mapToProfileResponse(recruiter);
@@ -58,7 +68,7 @@ public class RecruiterService {
         Recruiter recruiter = getCurrentRecruiter();
 
         if (recruiter.getCompany() == null) {
-            throw new RuntimeException("Please complete your company profile before posting a job");
+            throw new BusinessRuleException("COMPANY_PROFILE_REQUIRED", "Please complete your company profile before posting a job");
         }
 
         Job job = new Job();
@@ -83,6 +93,9 @@ public class RecruiterService {
         Job job = getOwnedJob(jobId, recruiter);
 
         applyJobRequest(job, request);
+        // Any edit sends the job back for admin review, so approved content cannot be
+        // changed after moderation.
+        job.setStatus("PENDING");
         job = jobRepository.save(job);
         return mapToJobResponse(job);
     }
@@ -90,6 +103,10 @@ public class RecruiterService {
     public void deleteJob(Long jobId) {
         Recruiter recruiter = getCurrentRecruiter();
         Job job = getOwnedJob(jobId, recruiter);
+        if (applicationRepository.existsByJobId(job.getId())) {
+            throw new ConflictException("JOB_HAS_APPLICATIONS",
+                    "This job already has applications and cannot be deleted");
+        }
         jobRepository.delete(job);
     }
 
@@ -106,13 +123,14 @@ public class RecruiterService {
         Recruiter recruiter = getCurrentRecruiter();
 
         Application application = applicationRepository.findById(applicationId)
-                .orElseThrow(() -> new RuntimeException("Application not found"));
+                .orElseThrow(() -> new NotFoundException("Application not found"));
 
         if (!application.getJob().getRecruiter().getId().equals(recruiter.getId())) {
-            throw new RuntimeException("You do not have access to this application");
+            throw new NotFoundException("Application not found");
         }
 
         application.setStatus(request.getStatus());
+        application.setUpdatedAt(java.time.LocalDateTime.now());
         applicationRepository.save(application);
 
         ApplicationTimeline entry = new ApplicationTimeline();
@@ -126,10 +144,10 @@ public class RecruiterService {
 
     private Job getOwnedJob(Long jobId, Recruiter recruiter) {
         Job job = jobRepository.findById(jobId)
-                .orElseThrow(() -> new RuntimeException("Job not found"));
+                .orElseThrow(() -> new NotFoundException("Job not found"));
 
         if (!job.getRecruiter().getId().equals(recruiter.getId())) {
-            throw new RuntimeException("You do not have access to this job");
+            throw new NotFoundException("Job not found");
         }
         return job;
     }

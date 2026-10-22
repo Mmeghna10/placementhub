@@ -18,6 +18,7 @@ export default function CompanyProfile() {
   const [editing, setEditing] = useState(false);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  const [error, setError] = useState('');
 
   const load = () => {
     getRecruiterProfile().then((res) => {
@@ -33,11 +34,14 @@ export default function CompanyProfile() {
   const handleSubmit = async (e) => {
     e.preventDefault();
     setSaving(true);
+    setError('');
     try {
       const res = await updateRecruiterProfile(form);
       setProfile(res.data);
       setForm(res.data);
       setEditing(false);
+    } catch (err) {
+      setError(err.response?.data?.error || 'Could not save changes');
     } finally {
       setSaving(false);
     }
@@ -106,6 +110,7 @@ export default function CompanyProfile() {
             ))}
           </div>
           <div className="flex items-center gap-3 pt-2">
+            {error && <p className="text-sm text-brick font-medium">{error}</p>}
             <button type="submit" disabled={saving} className="px-5 py-2.5 bg-ink text-paper rounded-md font-medium hover:bg-ink/90 transition disabled:opacity-50">
               {saving ? 'Saving…' : 'Save Changes'}
             </button>

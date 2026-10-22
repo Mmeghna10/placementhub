@@ -1,5 +1,6 @@
 package com.placementhub.backend.controller;
 
+import jakarta.validation.Valid;
 import com.placementhub.backend.dto.*;
 import com.placementhub.backend.service.StudentService;
 import lombok.RequiredArgsConstructor;
@@ -23,7 +24,7 @@ public class StudentController {
     }
 
     @PutMapping("/profile")
-    public ResponseEntity<StudentProfileResponse> updateProfile(@RequestBody StudentProfileUpdateRequest request) {
+    public ResponseEntity<StudentProfileResponse> updateProfile(@Valid @RequestBody StudentProfileUpdateRequest request) {
         return ResponseEntity.ok(studentService.updateProfile(request));
     }
 

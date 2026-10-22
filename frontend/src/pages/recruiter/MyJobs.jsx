@@ -25,8 +25,12 @@ export default function MyJobs() {
     e.stopPropagation();
     e.preventDefault();
     if (!confirm('Delete this job posting? This cannot be undone.')) return;
-    await deleteJob(id);
-    fetchJobs();
+    try {
+      await deleteJob(id);
+      fetchJobs();
+    } catch (err) {
+      alert(err.response?.data?.error || 'Could not delete this job');
+    }
   };
 
   return (

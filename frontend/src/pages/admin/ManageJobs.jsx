@@ -4,31 +4,53 @@ import DashboardLayout from '../../components/DashboardLayout';
 import LoadingState from '../../components/LoadingState';
 import EmptyState from '../../components/EmptyState';
 import StatusBadge from '../../components/StatusBadge';
+import Pagination from '../../components/Pagination';
 import { getAllJobs, getPendingJobs, approveJob } from '../../api/adminApi';
+
+const EMPTY_PAGE = { page: 0, totalPages: 0, totalElements: 0 };
 
 export default function ManageJobs() {
   const [searchParams] = useSearchParams();
   const pendingOnly = searchParams.get('pending') === 'true';
 
   const [jobs, setJobs] = useState([]);
+  const [pageInfo, setPageInfo] = useState(EMPTY_PAGE);
+  const [page, setPage] = useState(0);
+  const [reloadKey, setReloadKey] = useState(0);
   const [loading, setLoading] = useState(true);
   const [updatingId, setUpdatingId] = useState(null);
-
-  const fetchJobs = () => {
-    setLoading(true);
-    const call = pendingOnly ? getPendingJobs() : getAllJobs();
-    call.then((res) => setJobs(res.data)).finally(() => setLoading(false));
-  };
+  const [error, setError] = useState('');
 
   useEffect(() => {
-    fetchJobs();
-  }, [pendingOnly]);
+    // The pending endpoint returns a plain list; the all-jobs endpoint returns a page.
+    const call = pendingOnly ? getPendingJobs() : getAllJobs(page);
+    call
+      .then((res) => {
+        if (pendingOnly) {
+          setJobs(res.data);
+          setPageInfo(EMPTY_PAGE);
+        } else {
+          const { content, ...info } = res.data;
+          setJobs(content);
+          setPageInfo(info);
+        }
+      })
+      .finally(() => setLoading(false));
+  }, [pendingOnly, page, reloadKey]);
+
+  const handlePageChange = (next) => {
+    setLoading(true);
+    setPage(next);
+  };
 
   const handleDecision = async (jobId, status) => {
     setUpdatingId(jobId);
+    setError('');
     try {
       await approveJob(jobId, status);
-      fetchJobs();
+      setReloadKey((k) => k + 1);
+    } catch (err) {
+      setError(err.response?.data?.error || 'Could not update this job');
     } finally {
       setUpdatingId(null);
     }
@@ -42,6 +64,7 @@ export default function ManageJobs() {
       <div className="mt-1 w-12 border-t border-ink/30" />
 
       <div className="mt-8">
+        {error && <p className="text-sm text-brick font-medium mb-4">{error}</p>}
         {loading ? (
           <LoadingState />
         ) : jobs.length === 0 ? (
@@ -80,6 +103,7 @@ export default function ManageJobs() {
             ))}
           </div>
         )}
+        {!pendingOnly && <Pagination {...pageInfo} onPageChange={handlePageChange} disabled={loading} />}
       </div>
     </DashboardLayout>
   );

@@ -26,7 +26,8 @@ export default function ChatWidget() {
     setLoading(true);
 
     try {
-      const conversation = updated.slice(1); // drop the canned greeting
+      // Drop the canned greeting and send only recent history (the API accepts at most 20 messages).
+      const conversation = updated.slice(1).slice(-20);
       const res = await sendChatMessage(conversation);
       setMessages((prev) => [...prev, { role: 'assistant', content: res.data.reply }]);
     } catch (err) {
