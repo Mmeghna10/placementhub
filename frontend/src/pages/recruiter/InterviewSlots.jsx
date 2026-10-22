@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { Trash2 } from 'lucide-react';
 import DashboardLayout from '../../components/DashboardLayout';
@@ -22,6 +22,7 @@ export default function InterviewSlots() {
   const [form, setForm] = useState(emptyForm);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
+  const creating = useRef(false);
 
   useEffect(() => {
     getInterviewSlots(jobId)
@@ -34,6 +35,10 @@ export default function InterviewSlots() {
 
   const handleCreate = async (e) => {
     e.preventDefault();
+    // Block a double-click immediately (disabled only applies after re-render), otherwise
+    // two identical slots would be created.
+    if (creating.current) return;
+    creating.current = true;
     setSaving(true);
     setError('');
     try {
@@ -50,6 +55,7 @@ export default function InterviewSlots() {
       setError(err.response?.data?.error || 'Could not create the slot');
     } finally {
       setSaving(false);
+      creating.current = false;
     }
   };
 

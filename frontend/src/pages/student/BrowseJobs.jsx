@@ -10,15 +10,16 @@ export default function BrowseJobs() {
   const [loading, setLoading] = useState(true);
   const [showRecommended, setShowRecommended] = useState(false);
 
-  const fetchJobs = (recommended) => {
-    setLoading(true);
-    const call = recommended ? getRecommendedJobs() : getApprovedJobs();
-    call.then((res) => setJobs(res.data)).finally(() => setLoading(false));
-  };
-
   useEffect(() => {
-    fetchJobs(showRecommended);
+    const call = showRecommended ? getRecommendedJobs() : getApprovedJobs();
+    call.then((res) => setJobs(res.data)).finally(() => setLoading(false));
   }, [showRecommended]);
+
+  const toggleRecommended = (recommended) => {
+    if (recommended === showRecommended) return;
+    setLoading(true);
+    setShowRecommended(recommended);
+  };
 
   return (
     <DashboardLayout>
@@ -32,13 +33,13 @@ export default function BrowseJobs() {
 
         <div className="flex bg-white border border-ink/10 rounded-md p-1 self-start">
           <button
-            onClick={() => setShowRecommended(false)}
+            onClick={() => toggleRecommended(false)}
             className={`px-3.5 py-1.5 rounded text-sm font-medium transition ${!showRecommended ? 'bg-ink text-paper' : 'text-slate'}`}
           >
             All
           </button>
           <button
-            onClick={() => setShowRecommended(true)}
+            onClick={() => toggleRecommended(true)}
             className={`px-3.5 py-1.5 rounded text-sm font-medium transition ${showRecommended ? 'bg-ink text-paper' : 'text-slate'}`}
           >
             Recommended
