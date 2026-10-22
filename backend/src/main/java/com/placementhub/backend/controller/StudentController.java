@@ -2,8 +2,10 @@ package com.placementhub.backend.controller;
 
 import jakarta.validation.Valid;
 import com.placementhub.backend.dto.*;
+import com.placementhub.backend.service.InterviewSlotService;
 import com.placementhub.backend.service.StudentService;
 import lombok.RequiredArgsConstructor;
+import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
@@ -17,6 +19,7 @@ import java.util.List;
 public class StudentController {
 
     private final StudentService studentService;
+    private final InterviewSlotService interviewSlotService;
 
     @GetMapping("/profile")
     public ResponseEntity<StudentProfileResponse> getProfile() {
@@ -51,5 +54,21 @@ public class StudentController {
     @GetMapping("/applications/{id}")
     public ResponseEntity<ApplicationResponse> getApplicationDetails(@PathVariable Long id) {
         return ResponseEntity.ok(studentService.getApplicationDetails(id));
+    }
+
+    /** Upcoming interview slots for this application's job (INTERVIEW stage only). */
+    @GetMapping("/applications/{id}/slots")
+    public ResponseEntity<List<InterviewSlotResponse>> getInterviewSlots(@PathVariable Long id) {
+        return ResponseEntity.ok(interviewSlotService.getSlotsForStudent(id));
+    }
+
+    @PostMapping("/applications/{id}/slots/{slotId}/booking")
+    public ResponseEntity<ApplicationResponse> bookInterviewSlot(@PathVariable Long id, @PathVariable Long slotId) {
+        return ResponseEntity.status(HttpStatus.CREATED).body(interviewSlotService.bookSlot(id, slotId));
+    }
+
+    @DeleteMapping("/applications/{id}/booking")
+    public ResponseEntity<ApplicationResponse> cancelInterviewBooking(@PathVariable Long id) {
+        return ResponseEntity.ok(interviewSlotService.cancelBooking(id));
     }
 }

@@ -24,6 +24,9 @@ import org.springframework.test.context.DynamicPropertySource;
         "gemini.api.model=unused-in-tests",
         "spring.jpa.show-sql=false",
         "spring.jpa.properties.hibernate.generate_statistics=true",
+        // Concurrency tests run many transactions at the same moment; with the normal pool
+        // of 10 they would queue for connections and never really race.
+        "spring.datasource.hikari.maximum-pool-size=40",
         "logging.level.org.hibernate.engine.internal.StatisticalLoggingSessionEventListener=WARN"
 })
 @EnabledIfEnvironmentVariable(named = MySqlIntegrationTest.URL_ENV, matches = ".+")

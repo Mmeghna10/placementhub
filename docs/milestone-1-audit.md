@@ -646,12 +646,41 @@ M3: database foundation (2026-10-21):
 - **`UNIQUE(student_id, job_id)` → M4.** It fails to apply if a database already holds duplicates, so production must be checked first. The local dev database has none.
 - **`@Version` columns and status `CHECK` constraints → M4,** together with the code that uses them. Production may contain arbitrary status strings from before M2, so a `CHECK` could fail there.
 
-**Remaining:** M4–M10.
+M3 shipped to Azure on 2026-10-22. Production was checked first (database user can create tables and indexes, no duplicate applications, only valid status values); Flyway baselined and applied V2 on startup. The 404 on page refresh was also fixed (`staticwebapp.config.json`).
+
+M4: concurrency, consistency and interview slots (2026-10-22). Full write-up in [concurrency.md](concurrency.md).
+- **V3:**
+  - `UNIQUE (student_id, job_id)`;
+  - `version` columns on `applications` and `jobs`;
+  - `CHECK` constraints on both status columns.
+- **V4:** `interview_slots` (with a capacity `CHECK`) and `interview_bookings` (`UNIQUE (application_id)`).
+- **A, duplicate applications:** the database's unique key decides, and a duplicate gets 409 `APPLICATION_ALREADY_EXISTS`.
+- **B, deadline / close / eligibility:**
+  - all three are enforced on the server;
+  - the job row is read with a shared lock (`FOR SHARE`), so closing or editing a job waits for applications already in progress;
+  - a new `CLOSED` job status, with a recruiter "close" action;
+  - "today" is computed in `app.timezone` (Asia/Kolkata);
+  - expired jobs are hidden from students.
+- **C, interview slots (new feature):**
+  - a seat is taken by one atomic conditional `UPDATE`;
+  - a `CHECK` constraint and a unique key back it up;
+  - recruiter page to create, list and delete slots; student book and cancel on the application page.
+- **D, status changes:**
+  - an `ApplicationStatus` state machine allows only valid moves, and the API returns the allowed next statuses;
+  - the client sends its version, and `@Version` catches true races; both give 409.
+  - Admin approval only works from `PENDING`.
+- **Recruiter applicant details:** name, email, college, branch, CGPA, skills, resume/LinkedIn/GitHub.
+- **Tests:** 72/72 backend tests pass, 41 of them new:
+  - 8 concurrency tests with 20 simultaneous threads against MySQL;
+  - 19 rule tests;
+  - 6 endpoint tests.
+  - **Mutation-checked:** without the unique key, 20 clicks created **12 duplicates**; without the shared lock, closing a job did not wait. Both tests failed as they should.
+
+**Remaining:** M5–M10.
 
 **Known limitations (current):**
-- The duplicate-application race is still open (M4).
-- Deadline and eligibility are not enforced (M4).
-- There are no status transition rules and no optimistic locking (M4).
-- No rate limiting (M5).
-- 5 pre-existing frontend lint errors remain (M9).
+- No rate limiting, no OpenAPI docs, and the student job list isn't paginated (M5).
+- Branch eligibility is substring matching on free text.
+- Interview times have no time zone on the client; they're shown in the browser's local time and assume users are in IST.
+- 4 pre-existing frontend lint errors remain (M9).
 - `BackendApplicationTests` and the integration tests need MySQL. There is no Docker/Testcontainers yet (M6/M8).

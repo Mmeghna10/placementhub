@@ -3,6 +3,8 @@ package com.placementhub.backend.service;
 import com.placementhub.backend.exception.*;
 import com.placementhub.backend.dto.*;
 import com.placementhub.backend.entity.*;
+import com.placementhub.backend.enums.ApplicationStatus;
+import com.placementhub.backend.enums.JobStatus;
 import com.placementhub.backend.mapper.ApplicationMapper;
 import com.placementhub.backend.mapper.JobMapper;
 import com.placementhub.backend.repository.*;
@@ -11,6 +13,8 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.time.Clock;
+import java.time.LocalDateTime;
 import java.util.List;
 
 @Service
@@ -25,6 +29,8 @@ public class RecruiterService {
     private final ApplicationTimelineRepository timelineRepository;
     private final JobMapper jobMapper;
     private final ApplicationMapper applicationMapper;
+    private final InterviewSlotRepository slotRepository;
+    private final Clock clock;
 
     private Recruiter getCurrentRecruiter() {
         String email = SecurityUtils.getCurrentUserEmail();
@@ -82,7 +88,7 @@ public class RecruiterService {
         applyJobRequest(job, request);
         job.setRecruiter(recruiter);
         job.setCompany(recruiter.getCompany());
-        job.setStatus("PENDING");
+        job.setStatus(JobStatus.PENDING);
 
         job = jobRepository.save(job);
         return jobMapper.toResponse(job);
@@ -102,9 +108,30 @@ public class RecruiterService {
 
         applyJobRequest(job, request);
         // Any edit sends the job back for admin review, so approved content cannot be
-        // changed after moderation.
-        job.setStatus("PENDING");
-        job = jobRepository.save(job);
+        // changed after moderation. The UPDATE waits for in-flight applications holding the
+        // job's shared lock (see StudentService.applyToJob) and @Version rejects an edit
+        // that raced with another edit or an approval.
+        job.setStatus(JobStatus.PENDING);
+        job = jobRepository.saveAndFlush(job);
+        return jobMapper.toResponse(job);
+    }
+
+    /**
+     * Stops accepting applications. Existing applications and interview slots continue.
+     * Like an edit, the UPDATE waits for applications already in progress to commit; any
+     * application that starts afterwards is refused because the job is no longer APPROVED.
+     */
+    @Transactional
+    public JobResponse closeJob(Long jobId) {
+        Job job = requireOwnedJob(jobId);
+        if (job.getStatus() == JobStatus.CLOSED) {
+            throw new BusinessRuleException("JOB_ALREADY_CLOSED", "This job is already closed");
+        }
+        if (job.getStatus() != JobStatus.APPROVED) {
+            throw new BusinessRuleException("JOB_NOT_OPEN", "Only an approved (open) job can be closed");
+        }
+        job.setStatus(JobStatus.CLOSED);
+        job = jobRepository.saveAndFlush(job);
         return jobMapper.toResponse(job);
     }
 
@@ -116,6 +143,8 @@ public class RecruiterService {
             throw new ConflictException("JOB_HAS_APPLICATIONS",
                     "This job already has applications and cannot be deleted");
         }
+        // No applications means no bookings, so any interview slots can go with the job.
+        slotRepository.deleteByJobId(job.getId());
         jobRepository.delete(job);
     }
 
@@ -123,10 +152,22 @@ public class RecruiterService {
         Recruiter recruiter = getCurrentRecruiter();
         Job job = getOwnedJob(jobId, recruiter);
 
-        return applicationMapper.toResponses(applicationRepository.findByJobId(job.getId()));
+        return applicationMapper.toRecruiterResponses(
+                applicationRepository.findByJobIdOrderByAppliedAtAsc(job.getId()));
     }
 
-    /** Status change and its timeline entry commit together (or not at all). */
+    /**
+     * Moves an application to its next status. Three safeguards against conflicting updates:
+     *
+     * 1. State machine: only transitions allowed by ApplicationStatus (e.g. a REJECTED
+     *    application cannot be OFFERED later).
+     * 2. Client version (optional): if the recruiter's screen showed an older version than
+     *    the current one, the change is refused with 409 instead of overwriting.
+     * 3. @Version: if two transactions update the same row at the same time, the second
+     *    UPDATE matches no row (version already incremented) and fails with 409.
+     *
+     * The status change and its timeline entry commit together or not at all.
+     */
     @Transactional
     public ApplicationResponse updateApplicationStatus(Long applicationId, ApplicationStatusUpdateRequest request) {
         Recruiter recruiter = getCurrentRecruiter();
@@ -138,17 +179,35 @@ public class RecruiterService {
             throw new NotFoundException("Application not found");
         }
 
-        application.setStatus(request.getStatus());
-        application.setUpdatedAt(java.time.LocalDateTime.now());
-        applicationRepository.save(application);
+        if (request.getVersion() != null && !request.getVersion().equals(application.getVersion())) {
+            throw new ConflictException("APPLICATION_MODIFIED",
+                    "This application was updated by someone else. Refresh and try again.");
+        }
+
+        ApplicationStatus current = application.getStatus();
+        ApplicationStatus next = ApplicationStatus.valueOf(request.getStatus());
+        if (!current.canMoveTo(next)) {
+            throw new BusinessRuleException("INVALID_STATUS_TRANSITION",
+                    "An application cannot move from " + current + " to " + next
+                            + (current.isFinal() ? " (" + current + " is final)" : ""));
+        }
+
+        application.setStatus(next);
+        application.setUpdatedAt(LocalDateTime.now(clock));
+        application = applicationRepository.saveAndFlush(application);
 
         ApplicationTimeline entry = new ApplicationTimeline();
         entry.setApplication(application);
-        entry.setStatus(request.getStatus());
+        entry.setStatus(next.name());
         entry.setRemarks(request.getRemarks());
         timelineRepository.save(entry);
 
-        return applicationMapper.toResponse(application);
+        return applicationMapper.toRecruiterResponse(application);
+    }
+
+    /** The current recruiter's job, or 404 (also for other recruiters' jobs). */
+    Job requireOwnedJob(Long jobId) {
+        return getOwnedJob(jobId, getCurrentRecruiter());
     }
 
     private Job getOwnedJob(Long jobId, Recruiter recruiter) {

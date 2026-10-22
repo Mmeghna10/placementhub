@@ -1,5 +1,6 @@
 package com.placementhub.backend.entity;
 
+import com.placementhub.backend.enums.ApplicationStatus;
 import jakarta.persistence.*;
 import lombok.Data;
 import lombok.EqualsAndHashCode;
@@ -27,7 +28,15 @@ public class Application {
     @JoinColumn(name = "job_id", nullable = false)
     private Job job;
 
-    private String status = "APPLIED";
+    @Enumerated(EnumType.STRING)
+    private ApplicationStatus status = ApplicationStatus.APPLIED;
+
+    /**
+     * Optimistic lock: every UPDATE checks and increments this, so of two concurrent status
+     * changes based on the same version, the second fails instead of silently overwriting.
+     */
+    @Version
+    private Long version;
 
     @Column(name = "applied_at", updatable = false)
     private LocalDateTime appliedAt = LocalDateTime.now();

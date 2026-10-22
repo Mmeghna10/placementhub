@@ -6,6 +6,7 @@ const statusStyles = {
   REJECTED: 'bg-brick/10 text-brick',
   PENDING: 'bg-slate/10 text-slate',
   APPROVED: 'bg-teal/10 text-teal',
+  CLOSED: 'bg-ink/10 text-ink',
 };
 
 export default function StatusBadge({ status }) {

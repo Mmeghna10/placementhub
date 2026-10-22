@@ -3,6 +3,7 @@ package com.placementhub.backend.it;
 import com.placementhub.backend.dto.ApplicationResponse;
 import com.placementhub.backend.dto.JobResponse;
 import com.placementhub.backend.entity.*;
+import com.placementhub.backend.enums.JobStatus;
 import com.placementhub.backend.enums.Role;
 import com.placementhub.backend.service.AdminService;
 import com.placementhub.backend.service.RecruiterService;
@@ -79,7 +80,7 @@ class QueryCountIntegrationTest extends MySqlIntegrationTest {
             job.setRecruiter(recruiter);
             job.setCompany(company);
             job.setTitle("Engineer " + i);
-            job.setStatus("APPROVED");
+            job.setStatus(JobStatus.APPROVED);
             em.persist(job);
             jobs.add(job);
 
@@ -131,7 +132,7 @@ class QueryCountIntegrationTest extends MySqlIntegrationTest {
     private record Measured<T>(T result, long statements) {}
 
     @Test
-    void myApplicationsUsesThreeQueriesRegardlessOfCount() {
+    void myApplicationsUsesFourQueriesRegardlessOfCount() {
         loginAs(studentEmail);
 
         Measured<List<ApplicationResponse>> run = measure(studentService::getMyApplications);
@@ -141,9 +142,10 @@ class QueryCountIntegrationTest extends MySqlIntegrationTest {
             assertThat(a.getCompanyName()).startsWith("Acme");
             assertThat(a.getTimeline()).extracting("status").containsExactly("APPLIED", "SHORTLISTED");
         });
-        // student+user, applications+job+company, all timelines in one IN query.
+        // student+user, applications+job+company, all timelines in one IN query, all
+        // interview bookings in one IN query (Milestone 4).
         // Before Milestone 3: 1 + 1 + one timeline query per application + eager loads.
-        assertThat(run.statements()).isEqualTo(3);
+        assertThat(run.statements()).isEqualTo(4);
     }
 
     @Test
@@ -172,8 +174,9 @@ class QueryCountIntegrationTest extends MySqlIntegrationTest {
         Measured<List<ApplicationResponse>> run = measure(() -> recruiterService.getApplicantsForJob(firstJobId));
 
         assertThat(run.result()).hasSize(1);
-        // recruiter, owned job, applications+job+company, timelines.
-        assertThat(run.statements()).isLessThanOrEqualTo(4);
+        // recruiter, owned job, applications+job+company+student+user, timelines, bookings.
+        assertThat(run.result()).allSatisfy(a -> assertThat(a.getApplicant().getFullName()).isEqualTo("Sam Student"));
+        assertThat(run.statements()).isLessThanOrEqualTo(5);
     }
 
     @Test

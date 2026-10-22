@@ -3,6 +3,8 @@ package com.placementhub.backend.service;
 import com.placementhub.backend.exception.*;
 import com.placementhub.backend.dto.*;
 import com.placementhub.backend.entity.*;
+import com.placementhub.backend.enums.ApplicationStatus;
+import com.placementhub.backend.enums.JobStatus;
 import com.placementhub.backend.mapper.JobMapper;
 import com.placementhub.backend.repository.*;
 import lombok.RequiredArgsConstructor;
@@ -36,7 +38,7 @@ public class AdminService {
                 recruiterRepository.count(),
                 companyRepository.count(),
                 jobRepository.count(),
-                jobRepository.countByStatus("PENDING"),
+                jobRepository.countByStatus(JobStatus.PENDING),
                 applicationRepository.count()
         );
     }
@@ -64,7 +66,7 @@ public class AdminService {
     }
 
     public List<JobResponse> getPendingJobs() {
-        return jobRepository.findByStatus("PENDING").stream()
+        return jobRepository.findByStatus(JobStatus.PENDING).stream()
                 .map(jobMapper::toResponse)
                 .toList();
     }
@@ -76,24 +78,30 @@ public class AdminService {
         Job job = jobRepository.findById(jobId)
                 .orElseThrow(() -> new NotFoundException("Job not found"));
 
-        job.setStatus(request.getStatus());
-        job = jobRepository.save(job);
+        // Only a job waiting for review can be decided. Re-deciding an APPROVED job here
+        // would silently reopen or reject it; recruiters close jobs and edits re-queue them.
+        if (job.getStatus() != JobStatus.PENDING) {
+            throw new BusinessRuleException("JOB_NOT_PENDING",
+                    "Only pending jobs can be approved or rejected (this job is " + job.getStatus() + ")");
+        }
+
+        job.setStatus(JobStatus.valueOf(request.getStatus()));
+        // @Version: if a recruiter edited the job after it was loaded, this fails with 409.
+        job = jobRepository.saveAndFlush(job);
 
         return jobMapper.toResponse(job);
     }
 
     public AnalyticsResponse getAnalytics() {
-        List<String> statuses = Arrays.asList("APPLIED", "SHORTLISTED", "INTERVIEW", "OFFERED", "REJECTED");
-
-        List<ApplicationsByStatusResponse> byStatus = statuses.stream()
-                .map(status -> new ApplicationsByStatusResponse(status, applicationRepository.countByStatus(status)))
+        List<ApplicationsByStatusResponse> byStatus = Arrays.stream(ApplicationStatus.values())
+                .map(status -> new ApplicationsByStatusResponse(status.name(), applicationRepository.countByStatus(status)))
                 .toList();
 
         return new AnalyticsResponse(
                 byStatus,
                 jobRepository.count(),
-                jobRepository.countByStatus("APPROVED"),
-                jobRepository.countByStatus("REJECTED")
+                jobRepository.countByStatus(JobStatus.APPROVED),
+                jobRepository.countByStatus(JobStatus.REJECTED)
         );
     }
 

@@ -15,6 +15,7 @@ import com.placementhub.backend.exception.GlobalExceptionHandler;
 import com.placementhub.backend.exception.NotFoundException;
 import com.placementhub.backend.service.AdminService;
 import com.placementhub.backend.service.AuthService;
+import com.placementhub.backend.service.InterviewSlotService;
 import com.placementhub.backend.service.RecruiterService;
 import com.placementhub.backend.service.StudentService;
 import io.jsonwebtoken.Jwts;
@@ -39,6 +40,7 @@ import java.util.List;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.ArgumentMatchers.anyLong;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
@@ -74,6 +76,7 @@ class ApiSecurityTest {
     @MockitoBean StudentService studentService;
     @MockitoBean RecruiterService recruiterService;
     @MockitoBean AdminService adminService;
+    @MockitoBean InterviewSlotService interviewSlotService;
 
     @BeforeEach
     void users() {
@@ -254,6 +257,76 @@ class ApiSecurityTest {
             mockMvc.perform(get("/api/admin/dashboard").header("Authorization", bearer(ADMIN, "ADMIN")))
                     .andExpect(status().isOk())
                     .andExpect(jsonPath("$.totalJobs").value(4));
+        }
+    }
+
+    @Nested
+    class InterviewSlotEndpoints {
+
+        private static final String RECRUITER = "recruiter@example.com";
+
+        @BeforeEach
+        void recruiterUser() {
+            when(userDetailsService.loadUserByUsername(RECRUITER)).thenReturn(
+                    User.withUsername(RECRUITER).password("x").authorities("ROLE_RECRUITER").build());
+        }
+
+        @Test
+        void studentBookingReturns201() throws Exception {
+            when(interviewSlotService.bookSlot(7L, 3L)).thenReturn(new com.placementhub.backend.dto.ApplicationResponse());
+
+            mockMvc.perform(post("/api/students/applications/7/slots/3/booking")
+                            .header("Authorization", bearer(STUDENT, "STUDENT")))
+                    .andExpect(status().isCreated());
+        }
+
+        @Test
+        void fullSlotIs409() throws Exception {
+            when(interviewSlotService.bookSlot(7L, 3L))
+                    .thenThrow(new ConflictException("SLOT_FULL", "This interview slot is already full."));
+
+            mockMvc.perform(post("/api/students/applications/7/slots/3/booking")
+                            .header("Authorization", bearer(STUDENT, "STUDENT")))
+                    .andExpect(status().isConflict())
+                    .andExpect(jsonPath("$.code").value("SLOT_FULL"));
+        }
+
+        @Test
+        void studentCannotCreateSlots() throws Exception {
+            mockMvc.perform(post("/api/recruiter/jobs/1/slots")
+                            .header("Authorization", bearer(STUDENT, "STUDENT"))
+                            .contentType(MediaType.APPLICATION_JSON)
+                            .content("{\"startsAt\":\"2030-01-01T10:00:00\",\"durationMinutes\":30,\"capacity\":2}"))
+                    .andExpect(status().isForbidden());
+        }
+
+        @Test
+        void slotCapacityIsValidated() throws Exception {
+            mockMvc.perform(post("/api/recruiter/jobs/1/slots")
+                            .header("Authorization", bearer(RECRUITER, "RECRUITER"))
+                            .contentType(MediaType.APPLICATION_JSON)
+                            .content("{\"startsAt\":\"2030-01-01T10:00:00\",\"durationMinutes\":30,\"capacity\":0}"))
+                    .andExpect(status().isBadRequest())
+                    .andExpect(jsonPath("$.fieldErrors.capacity").exists());
+        }
+
+        @Test
+        void recruiterCreatesSlotWith201() throws Exception {
+            when(interviewSlotService.createSlot(eq(1L), any())).thenReturn(new com.placementhub.backend.dto.InterviewSlotResponse());
+
+            mockMvc.perform(post("/api/recruiter/jobs/1/slots")
+                            .header("Authorization", bearer(RECRUITER, "RECRUITER"))
+                            .contentType(MediaType.APPLICATION_JSON)
+                            .content("{\"startsAt\":\"2030-01-01T10:00:00\",\"durationMinutes\":30,\"capacity\":2,\"location\":\"Room 4\"}"))
+                    .andExpect(status().isCreated());
+        }
+
+        @Test
+        void closeJobEndpointIsWired() throws Exception {
+            when(recruiterService.closeJob(5L)).thenReturn(new com.placementhub.backend.dto.JobResponse());
+
+            mockMvc.perform(post("/api/recruiter/jobs/5/close").header("Authorization", bearer(RECRUITER, "RECRUITER")))
+                    .andExpect(status().isOk());
         }
     }
 
