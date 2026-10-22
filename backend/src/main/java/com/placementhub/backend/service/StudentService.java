@@ -11,12 +11,17 @@ import com.placementhub.backend.repository.*;
 import com.placementhub.backend.security.SecurityUtils;
 import lombok.RequiredArgsConstructor;
 import org.springframework.dao.DataIntegrityViolationException;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Sort;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.Clock;
 import java.time.LocalDate;
 import java.util.List;
+import java.util.Map;
 
 /**
  * Reads run in a read-only transaction (class default); each write use case is one
@@ -85,6 +90,74 @@ public class StudentService {
 
     private List<Job> openJobs() {
         return jobRepository.findOpenJobs(JobStatus.APPROVED, LocalDate.now(clock));
+    }
+
+    /** Allowed sort keys for job search, mapped to entity properties (never raw user input). */
+    private static final Map<String, Sort> JOB_SORTS = Map.of(
+            "newest", Sort.by(Sort.Direction.DESC, "postedAt").and(Sort.by(Sort.Direction.DESC, "id")),
+            "deadline", Sort.by(Sort.Order.asc("applicationDeadline").nullsLast()).and(Sort.by(Sort.Direction.DESC, "id")),
+            "salary", Sort.by(Sort.Order.desc("salaryMax").nullsLast()).and(Sort.by(Sort.Direction.DESC, "id")));
+
+    static final int MAX_PAGE_SIZE = 50;
+
+    /**
+     * Searches open jobs page by page. All filtering, eligibility and paging happen in one
+     * SQL query (JobRepository.searchOpenJobs) instead of loading every job into memory.
+     */
+    public PageResponse<JobResponse> searchJobs(String text, String jobType, String location,
+                                                boolean eligibleOnly, String sort, int page, int size) {
+        Student student = eligibleOnly ? getCurrentStudent() : null;
+        String branch = student == null || student.getBranch() == null || student.getBranch().isBlank()
+                ? null : likePattern(student.getBranch());
+
+        Pageable pageable = PageRequest.of(Math.max(page, 0), Math.min(Math.max(size, 1), MAX_PAGE_SIZE),
+                JOB_SORTS.getOrDefault(sort == null ? "newest" : sort, JOB_SORTS.get("newest")));
+
+        Page<Job> jobs = jobRepository.searchOpenJobs(JobStatus.APPROVED, LocalDate.now(clock),
+                likePattern(text), blankToNull(jobType), likePattern(location),
+                eligibleOnly, student == null ? null : student.getCgpa(), branch, pageable);
+
+        return PageResponse.from(jobs.map(job -> {
+            JobResponse response = jobMapper.toResponse(job);
+            response.setAcceptingApplications(true);
+            return response;
+        }));
+    }
+
+    /**
+     * One job for the job details page. Open jobs are visible to every student; a job that
+     * has closed (or passed its deadline) stays visible only to students who applied to it,
+     * so they can still see what they applied for. Anything else is 404.
+     */
+    public JobResponse getJob(Long jobId) {
+        Job job = jobRepository.findById(jobId).orElseThrow(() -> new NotFoundException("Job not found"));
+        boolean open = isAcceptingApplications(job);
+        if (!open && !applicationRepository.existsByStudentIdAndJobId(getCurrentStudent().getId(), jobId)) {
+            throw new NotFoundException("Job not found");
+        }
+        JobResponse response = jobMapper.toResponse(job);
+        response.setAcceptingApplications(open);
+        return response;
+    }
+
+    private boolean isAcceptingApplications(Job job) {
+        return job.getStatus() == JobStatus.APPROVED
+                && (job.getApplicationDeadline() == null
+                    || !LocalDate.now(clock).isAfter(job.getApplicationDeadline()));
+    }
+
+    /** "  Data  " -> "%data%"; blank -> null (filter not applied). LIKE wildcards are escaped. */
+    static String likePattern(String value) {
+        String trimmed = blankToNull(value);
+        if (trimmed == null) {
+            return null;
+        }
+        String escaped = trimmed.toLowerCase().replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_");
+        return "%" + escaped + "%";
+    }
+
+    private static String blankToNull(String value) {
+        return value == null || value.isBlank() ? null : value.trim();
     }
 
     /**

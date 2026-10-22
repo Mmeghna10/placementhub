@@ -4,6 +4,8 @@ import com.placementhub.backend.dto.*;
 import com.placementhub.backend.service.InterviewSlotService;
 import com.placementhub.backend.service.RecruiterService;
 import jakarta.validation.Valid;
+import io.swagger.v3.oas.annotations.tags.Tag;
+import io.swagger.v3.oas.annotations.Operation;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -13,6 +15,7 @@ import org.springframework.web.bind.annotation.*;
 import java.util.List;
 
 @RestController
+@Tag(name = "Recruiter", description = "Company profile, job postings, applicants, status changes and interview slots. Requires ROLE_RECRUITER; only the recruiter's own jobs are visible (others return 404).")
 @RequestMapping("/api/recruiter")
 @RequiredArgsConstructor
 @PreAuthorize("hasRole('RECRUITER')")
@@ -33,7 +36,7 @@ public class RecruiterController {
 
     @PostMapping("/jobs")
     public ResponseEntity<JobResponse> createJob(@Valid @RequestBody JobRequest request) {
-        return ResponseEntity.ok(recruiterService.createJob(request));
+        return ResponseEntity.status(HttpStatus.CREATED).body(recruiterService.createJob(request));
     }
 
     @GetMapping("/jobs")
@@ -57,12 +60,14 @@ public class RecruiterController {
         return ResponseEntity.ok(recruiterService.getApplicantsForJob(jobId));
     }
 
+    @Operation(summary = "Move an application to its next status", description = "Allowed: APPLIED->SHORTLISTED->INTERVIEW->OFFERED, or ->REJECTED. Send the version you displayed: 409 APPLICATION_MODIFIED / CONCURRENT_UPDATE if someone changed it first; 422 INVALID_STATUS_TRANSITION.")
     @PutMapping("/applications/{id}/status")
     public ResponseEntity<ApplicationResponse> updateApplicationStatus(@PathVariable Long id, @Valid @RequestBody ApplicationStatusUpdateRequest request) {
         return ResponseEntity.ok(recruiterService.updateApplicationStatus(id, request));
     }
 
     /** Stop accepting applications for an approved job. */
+    @Operation(summary = "Close a job to new applications", description = "Waits for applications already in progress, then refuses new ones (JOB_NOT_OPEN).")
     @PostMapping("/jobs/{id}/close")
     public ResponseEntity<JobResponse> closeJob(@PathVariable Long id) {
         return ResponseEntity.ok(recruiterService.closeJob(id));
@@ -73,6 +78,7 @@ public class RecruiterController {
         return ResponseEntity.ok(interviewSlotService.getSlotsForRecruiter(jobId));
     }
 
+    @Operation(summary = "Create an interview slot", description = "201 on success. Capacity 1-100; must start in the future (422 SLOT_IN_PAST).")
     @PostMapping("/jobs/{jobId}/slots")
     public ResponseEntity<InterviewSlotResponse> createSlot(@PathVariable Long jobId,
                                                             @Valid @RequestBody InterviewSlotRequest request) {

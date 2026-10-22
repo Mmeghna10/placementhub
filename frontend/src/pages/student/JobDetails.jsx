@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import { Link, useParams, useNavigate } from 'react-router-dom';
 import DashboardLayout from '../../components/DashboardLayout';
 import LoadingState from '../../components/LoadingState';
-import { getApprovedJobs, getMyApplications, applyToJob } from '../../api/studentApi';
+import { getJob, getMyApplications, applyToJob } from '../../api/studentApi';
 
 export default function JobDetails() {
   const { jobId } = useParams();
@@ -18,9 +18,10 @@ export default function JobDetails() {
   const submitting = useRef(false);
 
   useEffect(() => {
-    Promise.all([getApprovedJobs(), getMyApplications()])
-      .then(([jobsRes, appsRes]) => {
-        setJob(jobsRes.data.find((j) => String(j.id) === jobId) || null);
+    // A missing or hidden job is a 404; treat it as "not found" rather than an error.
+    Promise.all([getJob(jobId).catch(() => null), getMyApplications()])
+      .then(([jobRes, appsRes]) => {
+        setJob(jobRes?.data || null);
         setApplication(appsRes.data.find((a) => String(a.jobId) === jobId) || null);
       })
       .finally(() => setLoading(false));
@@ -115,6 +116,8 @@ export default function JobDetails() {
                 </Link>
               )}
             </p>
+          ) : job.acceptingApplications === false ? (
+            <p className="text-sm text-slate font-medium">This job is no longer accepting applications.</p>
           ) : (
             <button
               onClick={handleApply}
