@@ -1,8 +1,8 @@
-import { useEffect, useState } from 'react';
-import { useParams, useNavigate } from 'react-router-dom';
+import { useEffect, useRef, useState } from 'react';
+import { Link, useParams, useNavigate } from 'react-router-dom';
 import DashboardLayout from '../../components/DashboardLayout';
 import LoadingState from '../../components/LoadingState';
-import { getApprovedJobs, applyToJob } from '../../api/studentApi';
+import { getApprovedJobs, getMyApplications, applyToJob } from '../../api/studentApi';
 
 export default function JobDetails() {
   const { jobId } = useParams();
@@ -11,27 +11,40 @@ export default function JobDetails() {
   const [loading, setLoading] = useState(true);
   const [applying, setApplying] = useState(false);
   const [error, setError] = useState('');
-  const [applied, setApplied] = useState(false);
+  // The student's application to this job, if any (shown instead of the Apply button).
+  const [application, setApplication] = useState(null);
+  // `disabled` only takes effect after React re-renders, so a fast double-click could
+  // still send two requests. A ref blocks the second click immediately.
+  const submitting = useRef(false);
 
   useEffect(() => {
-    getApprovedJobs()
-      .then((res) => {
-        const found = res.data.find((j) => String(j.id) === jobId);
-        setJob(found || null);
+    Promise.all([getApprovedJobs(), getMyApplications()])
+      .then(([jobsRes, appsRes]) => {
+        setJob(jobsRes.data.find((j) => String(j.id) === jobId) || null);
+        setApplication(appsRes.data.find((a) => String(a.jobId) === jobId) || null);
       })
       .finally(() => setLoading(false));
   }, [jobId]);
 
   const handleApply = async () => {
+    if (submitting.current) return;
+    submitting.current = true;
     setApplying(true);
     setError('');
     try {
-      await applyToJob(jobId);
-      setApplied(true);
+      const res = await applyToJob(jobId);
+      setApplication(res.data);
     } catch (err) {
-      setError(err.response?.data?.error || 'Could not apply to this job');
+      if (err.response?.data?.code === 'APPLICATION_ALREADY_EXISTS') {
+        // Not a failure from the student's point of view: show their existing application.
+        const appsRes = await getMyApplications().catch(() => null);
+        setApplication(appsRes?.data.find((a) => String(a.jobId) === jobId) || { id: null });
+      } else {
+        setError(err.response?.data?.error || 'Could not apply to this job');
+      }
     } finally {
       setApplying(false);
+      submitting.current = false;
     }
   };
 
@@ -93,8 +106,15 @@ export default function JobDetails() {
         )}
 
         <div className="mt-8 pt-6 border-t border-ink/10">
-          {applied ? (
-            <p className="text-sm text-teal font-medium">Application submitted.</p>
+          {application ? (
+            <p className="text-sm text-teal font-medium">
+              You have applied to this job.{' '}
+              {application.id && (
+                <Link to={`/student/applications/${application.id}`} className="underline">
+                  View your application →
+                </Link>
+              )}
+            </p>
           ) : (
             <button
               onClick={handleApply}

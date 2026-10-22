@@ -30,7 +30,7 @@ export default function ChatWidget() {
       const conversation = updated.slice(1).slice(-20);
       const res = await sendChatMessage(conversation);
       setMessages((prev) => [...prev, { role: 'assistant', content: res.data.reply }]);
-    } catch (err) {
+    } catch {
       setMessages((prev) => [
         ...prev,
         { role: 'assistant', content: "Sorry, I couldn't reach the assistant just now. Try again in a moment." },

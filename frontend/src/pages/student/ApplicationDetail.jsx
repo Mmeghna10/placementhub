@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import DashboardLayout from '../../components/DashboardLayout';
 import LoadingState from '../../components/LoadingState';
@@ -25,16 +25,24 @@ function InterviewSection({ application, onChanged }) {
       .finally(() => setLoading(false));
   }, [application.id, application.status, application.interview]);
 
+  // `disabled={busy}` only applies after a re-render, so a fast double-click on "Book"
+  // would send two requests and the second would report the student's own seat as
+  // "slot full". The ref blocks the second click immediately.
+  const inFlight = useRef(false);
+
   const run = async (action) => {
+    if (inFlight.current) return;
+    inFlight.current = true;
     setBusy(true);
     setError('');
     try {
       await action();
     } catch (err) {
-      // e.g. 409 SLOT_FULL when someone took the last seat a moment earlier.
+      // e.g. 409 SLOT_FULL when someone else took the last seat a moment earlier.
       setError(err.response?.data?.error || 'Something went wrong. Please try again.');
     } finally {
       setBusy(false);
+      inFlight.current = false;
       onChanged();
     }
   };

@@ -12,14 +12,16 @@ export default function MyJobs() {
   const [loading, setLoading] = useState(true);
   const navigate = useNavigate();
 
-  const fetchJobs = () => {
-    setLoading(true);
-    getMyJobs().then((res) => setJobs(res.data)).finally(() => setLoading(false));
-  };
+  const [reloadKey, setReloadKey] = useState(0);
 
   useEffect(() => {
-    fetchJobs();
-  }, []);
+    getMyJobs().then((res) => setJobs(res.data)).finally(() => setLoading(false));
+  }, [reloadKey]);
+
+  const fetchJobs = () => {
+    setLoading(true);
+    setReloadKey((k) => k + 1);
+  };
 
   const handleDelete = async (id, e) => {
     e.stopPropagation();
