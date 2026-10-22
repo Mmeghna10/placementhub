@@ -43,6 +43,56 @@ public interface JobRepository extends JpaRepository<Job, Long> {
     List<Job> findOpenJobs(@Param("status") JobStatus status, @Param("today") LocalDate today);
 
     /**
+     * Student job search: open jobs (in the given status, deadline not passed) filtered in
+     * the database and returned one page at a time, so the cost does not grow with the
+     * total number of jobs. Every filter is optional (null = not applied).
+     *
+     * eligibleOnly mirrors EligibilityPolicy in SQL (CGPA minimum and case-insensitive
+     * branch "contains"); SearchJobsEligibilityIntegrationTest checks the two agree.
+     * Patterns are passed already lower-cased and wrapped in %...% by the service.
+     */
+    @EntityGraph(attributePaths = "company")
+    @Query(value = """
+            select j from Job j
+            where j.status = :status
+              and (j.applicationDeadline is null or j.applicationDeadline >= :today)
+              and (:text is null
+                   or lower(j.title) like :text
+                   or lower(j.company.name) like :text
+                   or lower(j.requiredSkills) like :text)
+              and (:jobType is null or j.jobType = :jobType)
+              and (:location is null or lower(j.location) like :location)
+              and (:eligibleOnly = false or (
+                    (j.minCgpa is null or (:cgpa is not null and j.minCgpa <= :cgpa))
+                    and (j.eligibleBranches is null or trim(j.eligibleBranches) = ''
+                         or (:branch is not null and lower(j.eligibleBranches) like :branch))))
+            """,
+            countQuery = """
+            select count(j) from Job j
+            where j.status = :status
+              and (j.applicationDeadline is null or j.applicationDeadline >= :today)
+              and (:text is null
+                   or lower(j.title) like :text
+                   or lower(j.company.name) like :text
+                   or lower(j.requiredSkills) like :text)
+              and (:jobType is null or j.jobType = :jobType)
+              and (:location is null or lower(j.location) like :location)
+              and (:eligibleOnly = false or (
+                    (j.minCgpa is null or (:cgpa is not null and j.minCgpa <= :cgpa))
+                    and (j.eligibleBranches is null or trim(j.eligibleBranches) = ''
+                         or (:branch is not null and lower(j.eligibleBranches) like :branch))))
+            """)
+    Page<Job> searchOpenJobs(@Param("status") JobStatus status,
+                             @Param("today") LocalDate today,
+                             @Param("text") String text,
+                             @Param("jobType") String jobType,
+                             @Param("location") String location,
+                             @Param("eligibleOnly") boolean eligibleOnly,
+                             @Param("cgpa") java.math.BigDecimal cgpa,
+                             @Param("branch") String branch,
+                             Pageable pageable);
+
+    /**
      * Loads the job for an apply request with a shared row lock (SELECT ... FOR SHARE).
      *
      * Many applications to the same job can hold the shared lock at once, so applying never

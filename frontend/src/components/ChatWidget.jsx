@@ -30,11 +30,12 @@ export default function ChatWidget() {
       const conversation = updated.slice(1).slice(-20);
       const res = await sendChatMessage(conversation);
       setMessages((prev) => [...prev, { role: 'assistant', content: res.data.reply }]);
-    } catch {
-      setMessages((prev) => [
-        ...prev,
-        { role: 'assistant', content: "Sorry, I couldn't reach the assistant just now. Try again in a moment." },
-      ]);
+    } catch (err) {
+      // 429: too many messages in a short time; the server says how long to wait.
+      const content = err.response?.status === 429
+        ? err.response.data?.error
+        : "Sorry, I couldn't reach the assistant just now. Try again in a moment.";
+      setMessages((prev) => [...prev, { role: 'assistant', content }]);
     } finally {
       setLoading(false);
     }

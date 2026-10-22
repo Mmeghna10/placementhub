@@ -245,6 +245,23 @@ All protected endpoints expect `Authorization: Bearer <token>`.
 
 Errors use one JSON shape: `{ "error": "…", "status": 409, "code": "SLOT_FULL", "path": "…", "timestamp": "…" }`.
 
+**Job search (Milestone 5):** `GET /api/students/jobs/search?q=&jobType=&location=&eligibleOnly=&sort=newest|deadline|salary&page=&size=` returns a page (`content`, `page`, `size`, `totalElements`, `totalPages`). Filtering, eligibility and paging run in one SQL query (plus a count), with page size capped at 50. `GET /api/students/jobs/{id}` returns one job.
+
+### Interactive API docs (Swagger)
+With the backend running, open **`http://localhost:8080/swagger-ui.html`** (or your port). Every endpoint is listed with its rules and error codes. To try protected endpoints:
+1. Call `POST /api/auth/login`.
+2. Copy the `token`.
+3. Click **Authorize** and paste the token.
+
+### Rate limiting
+| Endpoint | Limit | Per |
+|---|---|---|
+| `POST /api/auth/login` | 10 / minute | IP address |
+| `POST /api/auth/register` | 5 / 10 minutes | IP address |
+| `POST /api/chat` | 20 / 10 minutes | logged-in user |
+
+Over the limit, the API returns **429** with a `Retry-After` header and `code: RATE_LIMITED`, and the request never reaches the password check or the Gemini API. The limits use an in-memory token bucket (`backend/.../ratelimit/`), so they apply per backend instance; several instances would need a shared store such as Redis. Adjust them with `APP_RATE_LIMIT_LOGIN_PER_MINUTE`, `APP_RATE_LIMIT_REGISTER_PER_10_MINUTES` and `APP_RATE_LIMIT_CHAT_PER_10_MINUTES`, or turn them off with `APP_RATE_LIMIT_ENABLED=false`.
+
 ### Concurrency and data consistency
 Duplicate applications, applications racing a job closure, overbooked interview slots and conflicting status updates are all prevented in the database. Each case is proven by tests that fire 20 simultaneous requests at real MySQL. See **[docs/concurrency.md](docs/concurrency.md)**.
 

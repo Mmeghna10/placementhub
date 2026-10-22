@@ -1,5 +1,8 @@
 package com.placementhub.backend.config;
 
+import com.placementhub.backend.ratelimit.RateLimitFilter;
+import com.placementhub.backend.ratelimit.RateLimitRule;
+import com.placementhub.backend.ratelimit.RateLimiter;
 import com.placementhub.backend.security.JwtFilter;
 import com.placementhub.backend.security.SecurityErrorWriter;
 import lombok.RequiredArgsConstructor;
@@ -22,6 +25,7 @@ import org.springframework.web.cors.CorsConfigurationSource;
 import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
 import org.springframework.security.config.annotation.method.configuration.EnableMethodSecurity;
 
+import java.time.Duration;
 import java.util.List;
 
 @Configuration
@@ -66,6 +70,8 @@ public class SecurityConfig {
             .authorizeHttpRequests(auth -> auth
                 .requestMatchers("/api/auth/**").permitAll()
                 .requestMatchers("/error").permitAll()
+                // API docs describe endpoints only; every endpoint still checks its own auth.
+                .requestMatchers("/swagger-ui.html", "/swagger-ui/**", "/v3/api-docs/**").permitAll()
                 .anyRequest().authenticated()
             )
             .exceptionHandling(ex -> ex
@@ -75,7 +81,40 @@ public class SecurityConfig {
             .authenticationProvider(authenticationProvider())
             .addFilterBefore(jwtFilter, UsernamePasswordAuthenticationFilter.class);
 
+        if (rateLimitEnabled) {
+            // After JwtFilter, so the per-user chat rule knows who is calling.
+            http.addFilterAfter(new RateLimitFilter(rateLimiter(), rateLimitRules(), securityErrorWriter), JwtFilter.class);
+        }
+
         return http.build();
+    }
+
+    @Value("${app.rate-limit.enabled:true}")
+    private boolean rateLimitEnabled;
+
+    @Value("${app.rate-limit.login-per-minute:10}")
+    private int loginPerMinute;
+
+    @Value("${app.rate-limit.register-per-10-minutes:5}")
+    private int registerPer10Minutes;
+
+    @Value("${app.rate-limit.chat-per-10-minutes:20}")
+    private int chatPer10Minutes;
+
+    @Bean
+    public RateLimiter rateLimiter() {
+        return new RateLimiter();
+    }
+
+    /**
+     * login and register are limited per IP address (the caller is not logged in yet);
+     * chat is limited per user, because every message costs a Gemini API call.
+     */
+    private List<RateLimitRule> rateLimitRules() {
+        return List.of(
+                new RateLimitRule("login", "POST", "/api/auth/login", loginPerMinute, Duration.ofMinutes(1), false),
+                new RateLimitRule("register", "POST", "/api/auth/register", registerPer10Minutes, Duration.ofMinutes(10), false),
+                new RateLimitRule("chat", "POST", "/api/chat", chatPer10Minutes, Duration.ofMinutes(10), true));
     }
 
     @Bean

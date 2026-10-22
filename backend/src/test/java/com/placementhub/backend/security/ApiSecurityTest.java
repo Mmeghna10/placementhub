@@ -58,7 +58,10 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
         GlobalExceptionHandler.class, RestTemplateConfig.class})
 @TestPropertySource(properties = {
         "app.jwt.secret=" + ApiSecurityTest.SECRET,
-        "app.jwt.expiration-ms=3600000"
+        "app.jwt.expiration-ms=3600000",
+        // Rate limiting has its own tests (RateLimitWebTest); here it would make results
+        // depend on how many requests earlier tests sent.
+        "app.rate-limit.enabled=false"
 })
 class ApiSecurityTest {
 
@@ -114,7 +117,7 @@ class ApiSecurityTest {
             mockMvc.perform(post("/api/auth/register").contentType(MediaType.APPLICATION_JSON).content("""
                             {"email":"new@example.com","password":"secret123","role":"STUDENT","fullName":"New"}
                             """))
-                    .andExpect(status().isOk())
+                    .andExpect(status().isCreated())
                     .andExpect(jsonPath("$.role").value("STUDENT"));
         }
 

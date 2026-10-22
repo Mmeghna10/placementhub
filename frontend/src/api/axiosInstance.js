@@ -15,10 +15,17 @@ axiosInstance.interceptors.request.use((config) => {
 axiosInstance.interceptors.response.use(
   (response) => response,
   (error) => {
-    if (error.response?.status === 401) {
+    // A 401 from a logged-in request means the session is gone (expired, invalid or
+    // deactivated): clear it and go to the login page. A 401 from login/register itself
+    // is just "wrong email or password" and must reach the form so it can show the
+    // message; redirecting there would reload the page and wipe the error.
+    const isAuthRequest = error.config?.url?.startsWith('/api/auth/');
+    if (error.response?.status === 401 && !isAuthRequest) {
       localStorage.removeItem('token');
       localStorage.removeItem('user');
-      window.location.href = '/login';
+      if (window.location.pathname !== '/login') {
+        window.location.href = '/login';
+      }
     }
     return Promise.reject(error);
   }

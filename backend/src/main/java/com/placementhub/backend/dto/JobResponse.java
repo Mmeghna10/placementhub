@@ -23,4 +23,10 @@ public class JobResponse {
     private Long companyId;
     private Long recruiterId;
     private LocalDateTime postedAt;
+
+    /**
+     * Student view only: true if the job is APPROVED and its deadline has not passed
+     * (in app.timezone). The server still re-checks this when the student applies.
+     */
+    private Boolean acceptingApplications;
 }

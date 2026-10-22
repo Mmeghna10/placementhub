@@ -676,11 +676,36 @@ M4: concurrency, consistency and interview slots (2026-10-22). Full write-up in 
   - 6 endpoint tests.
   - **Mutation-checked:** without the unique key, 20 clicks created **12 duplicates**; without the shared lock, closing a job did not wait. Both tests failed as they should.
 
-**Remaining:** M5–M10.
+M4 shipped to Azure on 2026-10-22. An end-to-end test of every role on a fresh local database then found 3 double-click UI bugs, which were fixed and shipped (pull request #4). Frontend lint is now clean.
+
+M5: API polish (2026-10-22).
+- **Job search:**
+  - `GET /api/students/jobs/search` with text (title/company/skills), job type, location, eligible-only, sort (newest/deadline/salary) and pagination (size ≤ 50);
+  - one SQL query plus a count, with `LIKE` wildcards escaped;
+  - the SQL eligibility filter is tested to agree with `EligibilityPolicy`.
+- **Single job:** `GET /api/students/jobs/{id}` replaces "download every job and find one". Closed jobs stay visible to students who applied.
+- **Rate limiting:**
+  - an in-memory token bucket (`ratelimit/`) on login (10/min/IP), register (5/10 min/IP) and chat (20/10 min/user);
+  - 429 + `Retry-After`; the request never reaches BCrypt or Gemini;
+  - limits configurable through properties.
+- **OpenAPI:** springdoc 3.1.1, Swagger UI at `/swagger-ui.html` with a bearer "Authorize" button, tagged controllers, and the error codes documented.
+- **HTTP codes:** register, apply and create job now return `201 Created`.
+- **Frontend:**
+  - search bar, filters, sort and pages on Browse Jobs;
+  - the job page loads one job and says "no longer accepting applications" when closed;
+  - the chatbot shows the rate-limit message.
+- **Tests:** 92/92 backend tests pass, 20 new:
+  - 6 token-bucket tests;
+  - 2 tests of the 429 filter;
+  - 9 MySQL search tests;
+  - 3 docs tests.
+  - **Mutation-checked:** without `LIKE` escaping, searching "%" returned every job.
+
+**Remaining:** M6–M10.
 
 **Known limitations (current):**
-- No rate limiting, no OpenAPI docs, and the student job list isn't paginated (M5).
+- Rate limits are per instance (in memory). Several instances would need Redis.
+- On Azure, the client IP comes from the forwarded header that Spring Boot applies automatically. Not yet verified with two different real clients.
 - Branch eligibility is substring matching on free text.
 - Interview times have no time zone on the client; they're shown in the browser's local time and assume users are in IST.
-- 4 pre-existing frontend lint errors remain (M9).
 - `BackendApplicationTests` and the integration tests need MySQL. There is no Docker/Testcontainers yet (M6/M8).
