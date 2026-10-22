@@ -1,4 +1,4 @@
-import { BrowserRouter, Routes, Route } from 'react-router-dom';
+import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { AuthProvider } from './context/AuthContext';
 import ProtectedRoute from './routes/ProtectedRoute';
 
@@ -91,9 +91,6 @@ function App() {
             <ProtectedRoute allowedRole="ADMIN"><Analytics /></ProtectedRoute>
           } />
 
-          <Route path="/recruiter/profile" element={
-            <ProtectedRoute allowedRole="RECRUITER"><CompanyProfile /></ProtectedRoute>
-          } />
           <Route path="/recruiter/jobs" element={
             <ProtectedRoute allowedRole="RECRUITER"><MyJobs /></ProtectedRoute>
           } />
@@ -106,6 +103,9 @@ function App() {
           <Route path="/recruiter/jobs/:jobId/applicants" element={
             <ProtectedRoute allowedRole="RECRUITER"><ApplicantsList /></ProtectedRoute>
           } />
+
+          {/* Unknown addresses go to the landing page instead of rendering nothing */}
+          <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>
       </BrowserRouter>
     </AuthProvider>

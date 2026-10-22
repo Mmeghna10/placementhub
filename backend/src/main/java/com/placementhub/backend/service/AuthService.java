@@ -10,7 +10,9 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.crypto.password.PasswordEncoder;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 @Service
 @RequiredArgsConstructor
@@ -23,6 +25,11 @@ public class AuthService {
     private final JwtUtil jwtUtil;
     private final AuthenticationManager authenticationManager;
 
+    /**
+     * Creates the user and its student/recruiter profile atomically: if the profile insert
+     * fails, the user row is rolled back too (previously it was left orphaned).
+     */
+    @Transactional
     public AuthResponse register(RegisterRequest request) {
         // Also enforced by RegisterRequest validation; repeated here so the rule holds even if
         // this service is called from somewhere that skips @Valid.
@@ -38,7 +45,13 @@ public class AuthService {
         user.setEmail(request.getEmail());
         user.setPasswordHash(passwordEncoder.encode(request.getPassword()));
         user.setRole(request.getRole());
-        user = userRepository.save(user);
+        try {
+            user = userRepository.saveAndFlush(user);
+        } catch (DataIntegrityViolationException e) {
+            // Two sign-ups with the same email raced past existsByEmail; the UNIQUE(email)
+            // constraint decides the winner.
+            throw new ConflictException("EMAIL_ALREADY_REGISTERED", "Email already registered");
+        }
 
         if (request.getRole() == Role.STUDENT) {
             Student student = new Student();
@@ -56,6 +69,7 @@ public class AuthService {
         return new AuthResponse(token, user.getEmail(), user.getRole().name());
     }
 
+    @Transactional(readOnly = true)
     public AuthResponse login(LoginRequest request) {
         authenticationManager.authenticate(
                 new UsernamePasswordAuthenticationToken(request.getEmail(), request.getPassword())

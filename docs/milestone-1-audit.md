@@ -619,14 +619,39 @@ M2: security and correctness hotfixes (2026-10-21):
 - **Repo hygiene:** `backend/venv` is untracked.
 - **Tests:** 30 new tests (`ApiSecurityTest` web-layer security tests, `Milestone2ServiceRulesTest` unit tests). Neither needs a database.
 
-**Remaining:** M3–M10.
+M3: database foundation (2026-10-21):
+- **Flyway** (12.4, managed by Boot 4.1):
+  - `V1__baseline.sql` is the exact pre-Flyway schema;
+  - `V2__status_indexes.sql` adds `jobs(status, posted_at)` and `applications(status)`;
+  - `baseline-on-migrate` means existing databases (local dev, Azure) record V1 as already applied and only run V2.
+  - **Verified** on a full copy of the local dev database: baselined, V2 applied, row counts identical, Hibernate validation passed. The local dev database itself is now at V2.
+- **Committed `application.yaml`** for non-secret config:
+  - `open-in-view: false`, `ddl-auto: validate`;
+  - Hibernate `default_batch_fetch_size: 50`;
+  - Hikari pool size 10, 5 s connection timeout.
+  - Secrets still come from the git-ignored properties file or environment variables.
+- **Transactions:** `@Transactional(readOnly = true)` on every service, and a read-write transaction on each write use case. Registration is now atomic (a failed profile insert rolls back the user), and a duplicate-email race returns 409.
+- **Lazy loading:** every `@ManyToOne`/`@OneToOne` is now `LAZY` and excluded from Lombok `toString`/`equals`.
+- **N+1 fixed:**
+  - `@EntityGraph` fetch joins on list queries;
+  - all timelines for a list load in one IN query (`ApplicationMapper`);
+  - shared `JobMapper`/`ApplicationMapper` replace 5 copy-pasted mappers.
+- **Tests:** 8 new MySQL integration tests (Flyway, rollback, query counts), run against a dedicated `*_it` database:
+  - "My Applications" = 3 statements for any number of applications;
+  - approved jobs = 1 statement;
+  - the rollback test was confirmed to fail when `@Transactional` is removed.
+- **Totals:** 39/39 backend tests pass.
+
+**Moved out of M3, on purpose:**
+- **`UNIQUE(student_id, job_id)` → M4.** It fails to apply if a database already holds duplicates, so production must be checked first. The local dev database has none.
+- **`@Version` columns and status `CHECK` constraints → M4,** together with the code that uses them. Production may contain arbitrary status strings from before M2, so a `CHECK` could fail there.
+
+**Remaining:** M4–M10.
 
 **Known limitations (current):**
-- No transactions yet.
-- The duplicate-application race is still open (M3/M4).
+- The duplicate-application race is still open (M4).
 - Deadline and eligibility are not enforced (M4).
-- There are no status transition rules (M4).
-- N+1 queries remain (M3).
+- There are no status transition rules and no optimistic locking (M4).
 - No rate limiting (M5).
 - 5 pre-existing frontend lint errors remain (M9).
-- `BackendApplicationTests` still needs a local MySQL.
+- `BackendApplicationTests` and the integration tests need MySQL. There is no Docker/Testcontainers yet (M6/M8).
