@@ -1,241 +1,346 @@
 # PlacementHub
 
-A full-stack campus placement portal connecting students, recruiters, and placement cells in one place. Students browse and apply to jobs, recruiters post roles and manage applicants, and admins approve postings and track activity — all backed by a real JWT-secured API, a live MySQL database, and an AI-powered in-app guide.
+A full-stack campus placement portal for students, recruiters and the placement cell:
+- **students** find jobs they are eligible for, apply, track each application and book interview slots;
+- **recruiters** post jobs, review applicants, move them through a hiring pipeline and publish interview slots;
+- **admins** approve job postings and follow placement activity.
+
+It is a **Spring Boot modular monolith** with a **React** frontend and **MySQL**, deployed on Microsoft Azure. The core business rules hold under simultaneous requests, and each one is proven by tests against a real MySQL database. Every deploy is gated by CI.
 
 **🔗 Live demo:** [agreeable-cliff-07cedfc00.1.azurestaticapps.net](https://agreeable-cliff-07cedfc00.1.azurestaticapps.net)
 
-> **Note:** the backend runs on Azure's free/basic tier and spins down after periods of inactivity. The first request after idle time can take 10–20 seconds to respond while it wakes up — subsequent requests are fast. If you're testing this live, give it a moment on the first load.
+> The backend runs on a basic Azure App Service plan and can take 10–20 seconds to answer the first request after it has been idle.
 
-> Built end-to-end as a full-stack learning project — Spring Boot backend, React frontend, MySQL database, all deployed on Microsoft Azure, with a Gemini-powered chatbot.
+**Contents:**
+- [Features](#features)
+- [Tech stack](#tech-stack)
+- [Architecture](#architecture)
+- [Database schema](#database-schema)
+- [Authentication flow](#authentication-flow)
+- [API](#api)
+- [Concurrency and data consistency](#concurrency-and-data-consistency)
+- [Running locally](#running-locally)
+- [Testing](#testing)
+- [Observability and performance](#observability-and-performance)
+- [Deployment](#deployment)
+- [Known limitations](#known-limitations)
+- [Future improvements](#future-improvements)
+- [Further documentation](#further-documentation)
 
 ---
 
 ## Features
 
-### Public
-- Landing page with role-aware navigation (shows "Sign In / Get Started" or "Go to Dashboard" depending on login state)
-- Registration with role selection (Student / Recruiter)
-- JWT-based login
+**Student**
+- Profile with college, branch, CGPA, skills and resume/LinkedIn/GitHub links.
+- Job search with text, job type, location, sort and pagination, plus a **Recommended** filter that shows only jobs the student is eligible for.
+- Apply in one click. The server enforces the deadline, minimum CGPA, eligible branches and one application per job, even when the button is clicked many times at once.
+- Track each application with a dated status timeline (Applied → Shortlisted → Interview → Offered / Rejected).
+- Book an interview slot once an application reaches Interview, and cancel it before the slot starts.
 
-### Student
-- View and edit profile (college, branch, CGPA, skills, resume/LinkedIn/GitHub links)
-- Browse open jobs (approved and not past their deadline), or filter to **Recommended** jobs they are eligible for
-- View full job details and apply in one click. The server enforces the deadline, minimum CGPA, eligible branches and one application per job, even under simultaneous clicks.
-- Track every application with a dated status timeline (Applied → Shortlisted → Interview → Offered/Rejected)
-- **Book an interview slot** once an application reaches Interview, and cancel it before it starts
+**Recruiter**
+- Personal and company profiles.
+- Post, edit, delete and **close** jobs. New and edited jobs wait for admin approval.
+- See applicants per job with their full profile.
+- Move applications only along allowed steps. If two people change the same application at once, the second one is asked to refresh instead of silently overwriting the first.
+- Publish interview slots with a capacity. A slot can never be overbooked.
 
-### Recruiter
-- Separate personal profile and company profile pages
-- Post, edit, delete and **close** job listings (closing stops new applications)
-- View applicants per job with their profile (college, branch, CGPA, skills, resume/LinkedIn/GitHub)
-- Move applications only along allowed steps. If two people update the same application at once, the second gets a "refresh" message instead of silently overwriting.
-- **Publish interview slots** with a capacity; a slot can never be overbooked
-- New and edited jobs start as `PENDING` until admin approval
+**Admin**
+- Dashboard with live counts, pending approvals and analytics charts.
+- Approve or reject job postings; browse students and recruiters (paginated).
+- The first admin account is created from environment variables. Admins cannot sign up through the website.
 
-### Admin
-- Dashboard with live counts (students, recruiters, companies, jobs, pending approvals, applications)
-- Approve or reject pending job postings
-- Browse all registered students and recruiters
-- Analytics: applications-by-status bar chart, job-approval-breakdown pie chart
-
-### In-App AI Guide
-- Floating chatbot on every dashboard, powered by Google's Gemini API (free tier)
-- Role-aware system prompt — answers reflect exactly what that role can do in the app
-- No hardcoded FAQ — genuinely understands and answers open-ended questions
+**AI guide**
+- A chatbot on every dashboard, backed by Google Gemini and called from the server so the API key never reaches the browser. It answers according to the user's role and is rate-limited per user.
 
 ---
 
-## Tech Stack
+## Tech stack
 
-**Backend**
-- Java 17, Spring Boot 4
-- Spring Web, Spring Data JPA (Hibernate), Spring Security
-- JWT (jjwt) for stateless authentication, BCrypt for password hashing
-- MySQL 8
-- Maven
-
-**Frontend**
-- React 19 + Vite
-- React Router for client-side routing
-- Tailwind CSS with a custom design system (color tokens, Fraunces/Inter/IBM Plex Mono typography)
-- Axios with interceptors for JWT attachment and 401 handling
-- Recharts for analytics visualizations
-- Lucide React for icons
-
-**AI**
-- Google Gemini API (`gemini-3.6-flash`) called server-side, so the API key is never exposed to the browser
-
-**Cloud Infrastructure (Microsoft Azure)**
-- **Azure App Service** (Linux, Java 17 SE) — hosts the Spring Boot backend
-- **Azure Database for MySQL – Flexible Server** — managed production database
-- **Azure Static Web Apps** — hosts the React frontend, with CI/CD via GitHub Actions
-- **GitHub Actions** — separate automated build/deploy pipelines for backend and frontend, both triggered on push to `main`
-- Environment variables (DB credentials, JWT secret, Gemini API key) configured directly on App Service — never committed to source control
+| Layer | Technology |
+|---|---|
+| Backend | Java 17, Spring Boot 4.1 (Web, Data JPA / Hibernate 7, Security, Validation, Actuator), jjwt 0.12, BCrypt, springdoc-openapi |
+| Database | MySQL 8.0, schema managed by Flyway (versioned migrations) |
+| Frontend | React 19, Vite, React Router, Axios, Tailwind CSS, Recharts |
+| Testing | JUnit 5, Spring Boot Test, MockMvc, real-MySQL integration tests; Vitest + React Testing Library; k6 for load tests |
+| Containers | Docker multi-stage images (non-root), Docker Compose, nginx (unprivileged) |
+| CI/CD | GitHub Actions: tests, lint, `npm audit`, Docker build, Trivy image scan, then deploy |
+| Cloud | Azure App Service (backend), Azure Static Web Apps (frontend), Azure Database for MySQL Flexible Server |
 
 ---
 
-## Project Structure
+## Architecture
+
+PlacementHub is a **modular monolith**: one Spring Boot application and one MySQL database, split internally by layer and by role.
+
+```mermaid
+flowchart LR
+    U[Browser] --> FE["React SPA<br/>(Static Web Apps, or nginx in Docker)"]
+    FE -- "HTTPS + Bearer JWT" --> BE
+    subgraph BE["Spring Boot backend"]
+        F["Filters: RequestId → JWT → RateLimit"] --> C["Controllers<br/>(Auth, Student, Recruiter, Admin, Chat)"]
+        C --> S["Services<br/>(business rules, transactions)"]
+        S --> R["Repositories<br/>(Spring Data JPA)"]
+    end
+    R --> DB[(MySQL 8)]
+    S -- "server-side call" --> G[Gemini API]
+```
+
+- **Request path:**
+  - `RequestIdFilter` gives the request a correlation id;
+  - `JwtFilter` authenticates the request from the token;
+  - `RateLimitFilter` refuses abusive login, register and chat traffic;
+  - Spring Security checks the role for the URL;
+  - the service checks **ownership** and the business rules inside one transaction.
+- **Why a monolith:** a single team, a single database and a few hundred requests per second at most. All the important rules (one application per job, slot capacity) must be checked atomically, which one database does well. Microservices would turn those into distributed transactions. Interview question 10 in [docs/interview-prep.md](docs/interview-prep.md#10-why-choose-a-modular-monolith-over-microservices) explains this in more detail.
 
 ```
 placementhub/
-├── .github/workflows/          # CI/CD pipelines (backend + frontend, auto-generated by Azure)
-├── backend/
-│   └── src/main/java/com/placementhub/backend/
-│       ├── config/        # Security, CORS, RestTemplate/ObjectMapper beans
-│       ├── controller/    # REST endpoints
-│       ├── service/       # Business logic
-│       ├── entity/        # JPA entities
-│       ├── repository/    # Spring Data JPA repositories
-│       ├── dto/           # Request/response shapes
-│       ├── security/      # JWT filter, JWT util, UserDetailsService
-│       ├── exception/     # Global exception handling
-│       └── enums/         # Role enum
-└── frontend/
-    └── src/
-        ├── api/            # Axios calls, grouped by domain
-        ├── components/     # Navbar, DashboardLayout, ChatWidget, shared UI
-        ├── context/        # AuthContext
-        ├── pages/
-        │   ├── public/     # Landing, Login, Register
-        │   ├── student/
-        │   ├── recruiter/
-        │   └── admin/
-        ├── routes/         # ProtectedRoute
-        └── utils/          # Misc helpers
+├── backend/src/main/java/com/placementhub/backend/
+│   ├── config/          # Security, CORS, OpenAPI, admin bootstrap, clock/time zone
+│   ├── controller/      # REST endpoints, one per role
+│   ├── service/         # business rules + transactions (EligibilityPolicy, InterviewSlotService, …)
+│   ├── repository/      # Spring Data JPA, entity graphs, locking / atomic queries
+│   ├── entity/ enums/   # JPA entities, ApplicationStatus state machine
+│   ├── dto/ mapper/     # request/response shapes and shared mappers
+│   ├── security/        # JwtUtil, JwtFilter, JSON 401/403 writer
+│   ├── ratelimit/       # in-memory token bucket
+│   ├── observability/   # request ids, access log
+│   └── exception/       # one JSON error shape for every error
+├── backend/src/main/resources/db/migration/   # Flyway V1…V4
+├── frontend/src/        # api/, components/, context/ (AuthContext), pages/{public,student,recruiter,admin}/, routes/
+├── load-tests/          # k6 script + runner for an isolated stack
+├── compose.yaml         # MySQL + backend + frontend
+├── .github/workflows/   # ci.yml + the two Azure deploy workflows
+└── docs/                # design notes, see "Further documentation"
 ```
 
 ---
 
-## Running Locally
+## Database schema
 
-### Option A: Docker (recommended, one command)
-You only need **Docker Desktop**: no Java, Node or MySQL installation.
+The schema is created and changed only by **Flyway** migrations in `backend/src/main/resources/db/migration/`. Hibernate runs with `ddl-auto: validate`, so it checks the entities against the schema and never alters it.
+
+```mermaid
+erDiagram
+    users ||--o| students : "has profile"
+    users ||--o| recruiters : "has profile"
+    companies ||--o{ recruiters : employs
+    companies ||--o{ jobs : offers
+    recruiters ||--o{ jobs : posts
+    students ||--o{ applications : submits
+    jobs ||--o{ applications : receives
+    applications ||--o{ application_timeline : "status history"
+    jobs ||--o{ interview_slots : has
+    interview_slots ||--o{ interview_bookings : holds
+    applications ||--o| interview_bookings : "books at most one"
+
+    users { bigint id PK
+        varchar email UK
+        varchar password_hash
+        varchar role
+        bool is_active }
+    jobs { bigint id PK
+        varchar status "PENDING/APPROVED/REJECTED/CLOSED (CHECK)"
+        decimal min_cgpa
+        text eligible_branches
+        date application_deadline
+        bigint version }
+    applications { bigint id PK
+        bigint student_id FK
+        bigint job_id FK
+        varchar status "CHECK"
+        bigint version "optimistic lock" }
+    interview_slots { bigint id PK
+        int capacity "CHECK 1..100"
+        int booked_count "CHECK <= capacity" }
+    interview_bookings { bigint id PK
+        bigint application_id UK }
+```
+
+| Migration | What it does |
+|---|---|
+| `V1__baseline.sql` | The original 7 tables. Existing databases are *baselined* (marked as already at V1) instead of re-created. |
+| `V2__status_indexes.sql` | Indexes `jobs(status, posted_at)` and `applications(status)` for the common list queries. |
+| `V3__application_integrity.sql` | `UNIQUE (student_id, job_id)`, `version` columns on `applications` and `jobs`, and `CHECK` constraints on both status columns. |
+| `V4__interview_slots.sql` | `interview_slots` (capacity checks) and `interview_bookings` (`UNIQUE (application_id)`). |
+
+Migrations are forward-only. To change the schema, add `V5__…sql`; never edit one that has already run.
+
+---
+
+## Authentication flow
+
+```mermaid
+sequenceDiagram
+    participant B as Browser
+    participant A as Backend
+    participant D as MySQL
+    B->>A: POST /api/auth/login {email, password}
+    A->>D: load user by email
+    A->>A: BCrypt check, then sign JWT (HS256): sub=email, role, exp
+    A-->>B: {token, role, ...}
+    B->>B: store token (localStorage), AuthContext
+    B->>A: GET /api/students/... with Authorization: Bearer <token>
+    A->>A: JwtFilter: verify signature + expiry
+    A->>D: reload user (role, active flag)
+    A->>A: URL rule (hasRole) → service ownership check
+    A-->>B: 200, or JSON 401 / 403 / 404
+```
+
+- **Passwords:** stored only as BCrypt hashes.
+- **Tokens:** signed with HS256. The secret comes from configuration (`APP_JWT_SECRET`), and the app refuses to start if it is shorter than 32 bytes. Tokens are valid for 24 hours by default.
+- **Role and active flag are re-read from the database** on every request, so a deactivated account or a role change takes effect immediately, not when the token expires.
+- **Authorization happens in two layers:**
+  - URL rules: `/api/students/**` needs STUDENT, `/api/recruiter/**` RECRUITER, `/api/admin/**` and `/actuator/metrics` ADMIN.
+  - **Ownership checks in the services:** another student's application or another recruiter's job returns **404**, so the response does not reveal that the record exists.
+- **Expired or invalid token:** the API returns a JSON 401 such as "Your session has expired". The Axios interceptor then clears the session and sends the user to the login page. A wrong password on the login form is shown as an error and does *not* trigger that redirect.
+- **Logout** is client-side: the token is deleted from the browser. Tokens are not revoked on the server. That is acceptable with a 24 h lifetime, and deactivating an account works immediately because of the database check above.
+- **Why localStorage and not a cookie:** the Azure frontend and backend are on different domains, and a header token avoids CSRF and cross-site cookie setup. The cost is that a successful XSS attack could read the token. That is mitigated by React's escaping, no raw HTML rendering and security headers, and noted under [Known limitations](#known-limitations).
+
+---
+
+## API
+
+All endpoints are documented with **OpenAPI**: run the backend and open **`/swagger-ui.html`**.
+1. Call `POST /api/auth/login`.
+2. Copy the token.
+3. Click **Authorize**.
+
+| Area | Paths | Access |
+|---|---|---|
+| Auth | `POST /api/auth/register`, `POST /api/auth/login` | Public, rate-limited |
+| Student | `/api/students/**`: profile, `jobs/search`, `jobs/{id}`, `jobs/{id}/apply`, applications, slots, booking | STUDENT, own data only |
+| Recruiter | `/api/recruiter/**`: profile (with company), jobs (CRUD, `close`), applicants, `applications/{id}/status`, slots | RECRUITER, own jobs only |
+| Admin | `/api/admin/**`: dashboard, pending jobs, approve/reject, students, recruiters, analytics | ADMIN |
+| Chat | `POST /api/chat` | Any logged-in user, rate-limited |
+| Health | `/actuator/health/liveness`, `/actuator/health/readiness` | Public, UP/DOWN only |
+| Metrics | `/actuator/metrics/**` | ADMIN |
+
+**Conventions:**
+- **Status codes:** `201` for creates (register, apply, job, slot, booking), `404` for missing *or not yours*, `409` for conflicts, `422` for broken business rules, `429` for rate limits.
+- **One error shape:** `{ "error": "…", "status": 409, "code": "SLOT_FULL", "path": "…", "timestamp": "…", "requestId": "…" }`. The `code` is stable, so the frontend can react to it.
+- **Pagination:** `?page=&size=` (size capped at 50) returns `{ content, page, size, totalElements, totalPages }`.
+- **Job search:** `GET /api/students/jobs/search?q=&jobType=&location=&eligibleOnly=&sort=newest|deadline|salary&page=&size=` runs one SQL query plus a count, with `LIKE` wildcards escaped.
+- **Validation:** request DTOs use Bean Validation, and invalid input returns `400` with the field errors.
+
+**Rate limits** (in-memory token bucket; the response is `429` with `Retry-After` and `code: RATE_LIMITED`):
+
+| Endpoint | Limit |
+|---|---|
+| `POST /api/auth/login` | 10 / minute per IP |
+| `POST /api/auth/register` | 5 / 10 minutes per IP |
+| `POST /api/chat` | 20 / 10 minutes per user |
+
+They are configurable with `APP_RATE_LIMIT_*` and can be turned off with `APP_RATE_LIMIT_ENABLED=false`.
+
+---
+
+## Concurrency and data consistency
+
+Each rule below is enforced by **the database**, not only by a check in Java. A check in Java alone fails when two requests run at the same moment. Each case is proven by a test that releases 20 threads at once against real MySQL, and each test was *mutation-checked*: it fails when the protection is removed.
+
+| Scenario | Race | Mechanism | Result under 20 simultaneous requests |
+|---|---|---|---|
+| **A. Duplicate application** | Double-click, retry, two tabs | `UNIQUE (student_id, job_id)`; the duplicate-key error becomes `409 APPLICATION_ALREADY_EXISTS` | 1 application, 19 × 409. Without the key: 12 duplicates. |
+| **B. Applying while a job closes** | Recruiter closes or edits the job mid-application | The job row is read with `SELECT … FOR SHARE`, so closing waits for in-flight applications. Deadline and eligibility are checked on the server in `app.timezone`. | Every request is either fully accepted or refused with `JOB_NOT_OPEN`. |
+| **C. Last interview seats** | Many students book the last seats | Atomic `UPDATE … SET booked_count = booked_count + 1 WHERE booked_count < capacity`, with a `CHECK` constraint and `UNIQUE (application_id)` as backups | 3 seats → exactly 3 bookings, 17 × `SLOT_FULL`. |
+| **D. Two recruiters change one status** | Lost update | State machine (`ApplicationStatus`), the client sends its `version`, and the `@Version` column catches true races | 1 success, 19 × 409, 1 timeline row. |
+
+No Redis or distributed locks are used. Every rule lives in one MySQL database, which already provides the locks and constraints needed. The full write-up, with the alternatives considered, is in **[docs/concurrency.md](docs/concurrency.md)**.
+
+---
+
+## Running locally
+
+### Option A: Docker (recommended)
+Only **Docker Desktop** is needed.
 ```powershell
-copy .env.example .env      # then open .env and replace every change-me value
+copy .env.example .env      # then replace every change-me value
 docker compose up --build -d
 ```
-Open **http://localhost:3000** and log in with `ADMIN_EMAIL` / `ADMIN_PASSWORD` from `.env`; the admin account is created automatically on the first start. API docs are at http://localhost:3000/swagger-ui.html.
+Open **http://localhost:3000** and log in with `ADMIN_EMAIL` / `ADMIN_PASSWORD` from `.env`; the admin is created on first start. Swagger is at http://localhost:3000/swagger-ui.html.
 
-`docker compose ps` shows health, `docker compose logs -f backend` follows the logs, `docker compose down` stops the stack (data is kept), and `docker compose down -v` also deletes the database. All commands and an explanation of the images, network, volume and health checks are in **[docs/docker.md](docs/docker.md)**.
+How the containers connect:
+- **mysql**, **backend** and **frontend** share a Compose network.
+- The backend reaches the database at `mysql:3306` (Docker DNS).
+- nginx in the frontend container serves the React build and proxies `/api` to `backend:8080`. The browser therefore talks to a single origin, with no CORS and no backend URL compiled into the frontend.
+- Start-up is ordered by health checks: MySQL healthy → backend *ready* (migrated, database reachable) → frontend.
+- Data lives in the `mysql-data` volume. `docker compose down` keeps it; `down -v` deletes it.
+
+Details and commands: **[docs/docker.md](docs/docker.md)**.
 
 ### Option B: run each part yourself
+Prerequisites: JDK 17+, Node.js 20+, MySQL 8.
 
-#### Prerequisites
-- JDK 17+
-- Node.js 18+
-- MySQL 8
-
-#### 1. Database
-```sql
-CREATE DATABASE placementhub_db;
-```
-That's all. The tables are created by **Flyway** the first time the backend starts, from the versioned scripts in `backend/src/main/resources/db/migration/` (`V1__baseline.sql`, `V2__…`). Hibernate then only *validates* that the entities match the schema; it never changes it.
-
-Databases created before Flyway was added (the original local and Azure databases) are detected automatically. Flyway records V1 as the existing baseline and applies only the newer migrations, with no data changes.
-
-To change the schema, add a new `V<next>__description.sql` file. Never edit a migration that has already been applied.
-
-#### 2. Backend
-Shared, non-secret settings (Flyway, JPA, connection pool) live in the committed `backend/src/main/resources/application.yaml`.
-
-Create `backend/src/main/resources/application.properties` for your local secrets. It is not committed (see `.gitignore`), and its values override `application.yaml`:
-```properties
-spring.datasource.url=jdbc:mysql://localhost:3306/placementhub_db
-spring.datasource.username=root
-spring.datasource.password=YOUR_MYSQL_PASSWORD
-spring.datasource.driver-class-name=com.mysql.cj.jdbc.Driver
-
-spring.jpa.show-sql=true
-
-# At least 32 characters (HS256); the app refuses to start with a shorter secret
-app.jwt.secret=YOUR_JWT_SECRET
-app.jwt.expiration-ms=86400000
-
-gemini.api.key=YOUR_GEMINI_API_KEY
-gemini.api.model=gemini-3.6-flash
-
-server.port=8080
-```
-
-Get a free Gemini API key at [aistudio.google.com](https://aistudio.google.com) — no credit card required.
-
-```bash
-cd backend
-./mvnw spring-boot:run   # Mac/Linux
-.\mvnw.cmd spring-boot:run   # Windows
-```
-Runs on `http://localhost:8080`.
-
-#### Running the frontend tests
-```bash
-cd frontend
-npm test                 # all component tests once
-npm run test:watch       # re-run on save
-npm run test:coverage    # with a coverage report in frontend/coverage/
-```
-59 tests (Vitest + React Testing Library in jsdom) cover:
-- login, registration and route protection;
-- session expiry and the wrong-password message;
-- job search, filters and pagination;
-- applying, including double-click and "already applied";
-- interview booking and cancelling;
-- recruiter status changes, including version conflicts;
-- slots and job closing;
-- admin approval;
-- loading, empty and error states.
-
-API calls are mocked, so no backend is needed.
-
-#### Running the backend tests
-```bash
-cd backend
-./mvnw test
-```
-- **Unit and web-layer security tests** need no database.
-- **`BackendApplicationTests`** starts the whole app against the database in your `application.properties`.
-- **MySQL integration tests** (`backend/src/test/java/.../it/`) cover Flyway migrations, transaction rollback and N+1 query counts. They run only when a dedicated, empty test database is configured, and are skipped otherwise:
-  ```sql
-  CREATE DATABASE placementhub_it;
-  ```
-  ```powershell
-  $env:PLACEMENTHUB_IT_DB_URL = "jdbc:mysql://localhost:3306/placementhub_it"
-  $env:PLACEMENTHUB_IT_DB_USER = "root"
-  $env:PLACEMENTHUB_IT_DB_PASSWORD = "YOUR_MYSQL_PASSWORD"
-  .\mvnw.cmd test
-  ```
-  As a safety check, they refuse to run unless the database name ends in `_it` or `_test`.
-
-#### 3. Frontend
-Create `frontend/.env`:
-```
-VITE_API_BASE_URL=http://localhost:8080
-```
-
-```bash
-cd frontend
-npm install
-npm run dev
-```
-Runs on `http://localhost:5173`.
-
-#### 4. First admin account
-Admins can't sign up through the website. Either set `APP_BOOTSTRAP_ADMIN_EMAIL` and `APP_BOOTSTRAP_ADMIN_PASSWORD` (12+ characters) before starting the backend, and the account is created automatically, or register a normal account and promote it manually:
-```sql
-UPDATE users SET role = 'ADMIN' WHERE email = 'your-admin-email@example.com';
-DELETE FROM students WHERE user_id = (SELECT id FROM users WHERE email = 'your-admin-email@example.com');
-```
+1. **Database:** `CREATE DATABASE placementhub_db;`. Flyway creates the tables on the first start.
+2. **Backend:** create the git-ignored `backend/src/main/resources/application.properties`:
+   ```properties
+   spring.datasource.url=jdbc:mysql://localhost:3306/placementhub_db
+   spring.datasource.username=root
+   spring.datasource.password=YOUR_MYSQL_PASSWORD
+   # At least 32 characters; the app refuses to start with a shorter secret
+   app.jwt.secret=YOUR_JWT_SECRET
+   app.jwt.expiration-ms=86400000
+   # Optional: without a key, only the AI guide is unavailable
+   gemini.api.key=YOUR_GEMINI_API_KEY
+   gemini.api.model=gemini-3.6-flash
+   ```
+   Then run `.\mvnw.cmd spring-boot:run` (Windows) or `./mvnw spring-boot:run` from `backend/`. It serves on http://localhost:8080.
+3. **Frontend:** create `frontend/.env` with `VITE_API_BASE_URL=http://localhost:8080`, then run `npm install` and `npm run dev` in `frontend/`. It serves on http://localhost:5173.
+4. **First admin:** set `APP_BOOTSTRAP_ADMIN_EMAIL` and `APP_BOOTSTRAP_ADMIN_PASSWORD` (12+ characters) before starting the backend. The account is created once and an existing account is never promoted.
 
 ---
 
-## Deployment Architecture
+## Testing
+
+| Suite | Count | What it covers | Command |
+|---|---|---|---|
+| Backend unit and web tests | part of 105 | Business rules and the status state machine, token bucket, JWT/security rules (401/403/404 for other users' data), admin bootstrap | `cd backend` then `./mvnw test` |
+| Backend MySQL integration tests | part of 105 | Flyway migrations, transaction rollback, **N+1 query counts**, search SQL, **concurrency scenarios A–D**, health, observability, OpenAPI | same, with `PLACEMENTHUB_IT_DB_*` set (below) |
+| Frontend component tests | 59 | Login/register, route protection, session expiry, search/filters/paging, apply (double-click, 409), booking, recruiter status changes with version conflicts, admin approval, loading/empty/error states | `cd frontend` then `npm test` |
+| Load test (k6) | 4 scenarios | Throughput and latency, plus correctness under bursts | `load-tests\run-load-test.ps1` |
+
+The MySQL integration tests need an empty database whose name ends in `_it` or `_test`. They are skipped when it is not configured:
+```powershell
+# first: CREATE DATABASE placementhub_it;
+$env:PLACEMENTHUB_IT_DB_URL = "jdbc:mysql://localhost:3306/placementhub_it"
+$env:PLACEMENTHUB_IT_DB_USER = "root"
+$env:PLACEMENTHUB_IT_DB_PASSWORD = "YOUR_MYSQL_PASSWORD"
+.\mvnw.cmd test
+```
+In CI all 105 backend tests run against a MySQL 8.0.46 service container. Frontend tests mock the API, so they need no backend. Other commands are `npm run test:watch` and `npm run test:coverage`.
+
+**Not automated yet:** browser end-to-end tests. The end-to-end journeys were checked by hand on a fresh stack: register, log in, see eligible jobs, apply, duplicate refused, recruiter review, admin approval, unauthorized requests refused. They are not yet automated (see [Future improvements](#future-improvements)).
+
+---
+
+## Observability and performance
+
+- **Correlation ids:** every response has an `X-Request-Id`. The same id is in JSON error bodies and on every log line for that request. In Docker, logs are JSON (Elastic Common Schema).
+- **Metrics (admin only):** `/actuator/metrics` shows HTTP p50/p95/p99 per endpoint, error counts, Hikari connection-pool usage and the JVM.
+- **Slow queries:** SQL slower than 200 ms is logged.
+- **Health:** `/actuator/health/liveness` (the process is up) and `/actuator/health/readiness` (includes the database).
+- **k6 results on one laptop** (everything shares one CPU, so these are for comparing changes, not a capacity promise):
+  - ~2,200–2,400 search requests/s at p95 40–45 ms;
+  - browsing with think time p95 < 8 ms;
+  - **200 students × 3 simultaneous clicks → exactly 200 applications**;
+  - **100 students racing for 20 seats → exactly 20 bookings**;
+  - 0 server errors.
+
+Method, raw numbers and the connection-pool experiment are in **[docs/performance.md](docs/performance.md)**.
+
+---
+
+## Deployment
 
 ```mermaid
 flowchart LR
     PR[Pull request / push to main] --> CI
-    subgraph CI["CI (.github/workflows/ci.yml)"]
-        B["Backend: 104 tests<br/>against MySQL 8.0.46"]
-        F["Frontend: lint, npm audit, build"]
-        D["Docker: build both images,<br/>Trivy scan"]
+    subgraph CI["ci.yml"]
+        B["Backend: 105 tests<br/>on MySQL 8.0.46"]
+        F["Frontend: lint, 59 tests,<br/>npm audit, build"]
+        D["Docker: build images,<br/>Trivy scan"]
     end
     CI -- all green --> DB["Deploy backend<br/>Azure App Service"]
     CI -- all green --> DF["Deploy frontend<br/>Azure Static Web Apps"]
@@ -243,120 +348,54 @@ flowchart LR
     DB --> M[(Azure Database for MySQL)]
 ```
 
-**Every deployment is tested first.** Both deploy workflows (`main_placementhub-backend2.yml` and `azure-static-web-apps-....yml`) call the reusable `ci.yml` and `need` it to pass:
-
-| CI job | What it checks | Fails the pipeline when |
-|---|---|---|
-| Backend tests (MySQL) | `./mvnw verify`: all unit, security, concurrency, migration and integration tests, against a throwaway MySQL service container | any test fails |
-| Frontend | `npm ci`, ESLint, `npm audit --omit=dev --audit-level=critical`, `npm run build` | lint error, critical vulnerability, or build error |
-| Docker images | builds the backend and frontend images, then scans them with Trivy (HIGH/CRITICAL reported) | a CRITICAL vulnerability that already has a fix |
-
-Pull requests show the same checks before merging. On a push to `main`, a red check means the live site keeps running the previous version.
-
-**Safe release procedure:**
-1. Open a pull request.
-2. Wait for all CI checks to pass.
-3. Merge.
-4. Watch the Actions tab until both deploys succeed.
-5. Confirm `/actuator/health/readiness` reports `UP`.
-6. **Rollback:** re-run the deploy workflow of the last good commit (Actions tab → that run → *Re-run all jobs*), or revert the merge commit with a pull request. Database migrations are forward-only: never edit an applied migration; undo a schema change with a new one, and take a backup (Azure point-in-time restore) before releasing a migration.
-
-**Recommended GitHub setting (one-time, repository owner):** Settings → Branches → *Add branch protection rule* for `main` → *Require status checks to pass before merging* → select the three CI checks. This also stops merging a pull request whose tests fail.
-
-**Key deployment details worth knowing:**
-- The backend's startup command is explicitly set (`java -jar /home/site/wwwroot/*.jar`) rather than relying on Azure's auto-detection, since the JAR isn't in the default expected path.
-- The deploy job packages the jar with `-DskipTests` **only because the CI job of the same run has already run every test** against a MySQL service container.
-- **Schema migrations run automatically on startup.** When the new JAR starts on App Service, Flyway applies any pending `db/migration` scripts to Azure MySQL before the app accepts traffic. The database user therefore needs permission to create tables and indexes. Migrations are forward-only: to undo one, ship a new migration. Take a backup (or rely on Azure's point-in-time restore) before deploying a release that contains a migration.
-- CORS on the backend explicitly allowlists the deployed frontend's origin — required since frontend and backend are hosted on separate Azure services with different domains.
-- `VITE_API_BASE_URL` is injected via a GitHub Actions secret at build time (not runtime), since Vite bakes environment variables into the built JS bundle.
+- **Production configuration:** the committed `application.yaml` holds only non-secret defaults. Secrets come from environment variables on App Service: `SPRING_DATASOURCE_*`, `APP_JWT_SECRET`, `GEMINI_API_KEY` and `APP_BOOTSTRAP_ADMIN_*`. `VITE_API_BASE_URL` is a GitHub secret baked into the frontend build. CORS allowlists only the frontend's origin.
+- **Secrets:** nothing real is committed. Local secrets live in git-ignored files (`application.properties`, `.env`), and the Docker images are checked to contain none.
+- **Database migrations:** Flyway runs on startup, before the app accepts traffic. Migrations are forward-only.
+- **Backups:** take a backup or rely on Azure point-in-time restore before releasing a migration.
+- **Health checks:** App Service should use `/actuator/health/readiness`. Docker Compose uses the same endpoint.
+- **Logging:** request ids in every line; JSON logs in containers; access log with durations.
+- **Safe release:**
+  1. Open a pull request.
+  2. Wait for all three CI checks to pass.
+  3. Merge.
+  4. Watch both deploy runs.
+  5. Confirm readiness is `UP` and do a smoke test.
+- **Rollback:** re-run the deploy workflow of the last good commit, or revert the merge commit. A schema change is undone with a new migration, never by editing an old one.
+- **Recommended repository setting:** branch protection on `main` that requires the three CI checks.
+- **Docker Compose** is for local development and the load-test stack. It is not a production orchestrator. Production runs on Azure's managed services.
 
 ---
 
-## API Overview
+## Known limitations
 
-| Area | Base path | Auth |
-|---|---|---|
-| Auth | `/api/auth/register`, `/api/auth/login` | Public |
-| Student | `/api/students/**` | `ROLE_STUDENT` |
-| Recruiter | `/api/recruiter/**` | `ROLE_RECRUITER` |
-| Admin | `/api/admin/**` | `ROLE_ADMIN` |
-| Chat | `/api/chat` | Any authenticated user |
+- **Rate limits are per instance** (in memory). Running several backend instances would need a shared store such as Redis.
+- **Tokens are kept in `localStorage`** and are not revoked on logout. There are no refresh tokens. A 24 h lifetime and the per-request database check limit the impact.
+- **No password reset** or email verification.
+- **Branch eligibility** is substring matching on free text ("MCA" does not match "Computer Applications").
+- **Interview times** have no time zone on the client; they assume users are in IST.
+- **Load numbers come from one laptop.** Azure has not been load-tested; that would need a staging copy.
+- **No automated browser E2E tests** (component and integration tests only). Frontend line coverage is about 57%.
+- **Cold starts** on the basic App Service plan.
 
-All protected endpoints expect `Authorization: Bearer <token>`.
+## Future improvements
 
-**Interview slots and job closing (Milestone 4):**
+- Playwright end-to-end tests for the main journeys, run in CI against the Docker Compose stack.
+- Refresh tokens in an `HttpOnly` cookie, now that the Docker setup serves the frontend and API from the same origin.
+- Password reset and email notifications (status changes, interview reminders) through a background job queue.
+- Branch and skills as shared reference data instead of free text, for exact eligibility matching.
+- Redis, only when there is more than one backend instance (shared rate limits) or measured read load that MySQL indexes cannot serve.
+- A staging environment for load tests and migration rehearsals.
 
-| Method | Path | Who | Notes |
-|---|---|---|---|
-| `POST` | `/api/recruiter/jobs/{id}/close` | Recruiter (owner) | Stops new applications |
-| `GET` / `POST` | `/api/recruiter/jobs/{jobId}/slots` | Recruiter (owner) | List with bookings / create (`201`) |
-| `DELETE` | `/api/recruiter/jobs/{jobId}/slots/{slotId}` | Recruiter (owner) | `409` if already booked |
-| `GET` | `/api/students/applications/{id}/slots` | Student (owner) | Only in `INTERVIEW` stage |
-| `POST` | `/api/students/applications/{id}/slots/{slotId}/booking` | Student (owner) | `201`; `409 SLOT_FULL` / `ALREADY_BOOKED` |
-| `DELETE` | `/api/students/applications/{id}/booking` | Student (owner) | Cancel before the slot starts |
+## Further documentation
 
-Errors use one JSON shape: `{ "error": "…", "status": 409, "code": "SLOT_FULL", "path": "…", "timestamp": "…" }`.
-
-**Job search (Milestone 5):** `GET /api/students/jobs/search?q=&jobType=&location=&eligibleOnly=&sort=newest|deadline|salary&page=&size=` returns a page (`content`, `page`, `size`, `totalElements`, `totalPages`). Filtering, eligibility and paging run in one SQL query (plus a count), with page size capped at 50. `GET /api/students/jobs/{id}` returns one job.
-
-### Interactive API docs (Swagger)
-With the backend running, open **`http://localhost:8080/swagger-ui.html`** (or your port). Every endpoint is listed with its rules and error codes. To try protected endpoints:
-1. Call `POST /api/auth/login`.
-2. Copy the `token`.
-3. Click **Authorize** and paste the token.
-
-### Rate limiting
-| Endpoint | Limit | Per |
-|---|---|---|
-| `POST /api/auth/login` | 10 / minute | IP address |
-| `POST /api/auth/register` | 5 / 10 minutes | IP address |
-| `POST /api/chat` | 20 / 10 minutes | logged-in user |
-
-Over the limit, the API returns **429** with a `Retry-After` header and `code: RATE_LIMITED`, and the request never reaches the password check or the Gemini API. The limits use an in-memory token bucket (`backend/.../ratelimit/`), so they apply per backend instance; several instances would need a shared store such as Redis. Adjust them with `APP_RATE_LIMIT_LOGIN_PER_MINUTE`, `APP_RATE_LIMIT_REGISTER_PER_10_MINUTES` and `APP_RATE_LIMIT_CHAT_PER_10_MINUTES`, or turn them off with `APP_RATE_LIMIT_ENABLED=false`.
-
-### Observability and performance
-- Every request gets an `X-Request-Id`. It's in the response header, in JSON error bodies and on every log line for that request; in Docker, logs are JSON.
-- Admins can read latency percentiles, error counts and database pool metrics at `/actuator/metrics`.
-- SQL statements slower than 200 ms are logged.
-- **Load-tested with k6** (`load-tests/run-load-test.ps1`, on an isolated throwaway stack):
-  - ~2,200–2,400 search requests/s at p95 40–45 ms on one laptop;
-  - 200 simultaneous applicants × 3 clicks left exactly 200 applications;
-  - 100 students racing for 20 seats left exactly 20 bookings;
-  - 0 server errors.
-  - Method, raw numbers, a connection-pool experiment and limitations are in **[docs/performance.md](docs/performance.md)**.
-
-### Concurrency and data consistency
-Duplicate applications, applications racing a job closure, overbooked interview slots and conflicting status updates are all prevented in the database. Each case is proven by tests that fire 20 simultaneous requests at real MySQL. See **[docs/concurrency.md](docs/concurrency.md)**.
+| Document | Contents |
+|---|---|
+| [docs/interview-prep.md](docs/interview-prep.md) | Two-minute pitch, five-minute walkthrough, 14 interview answers grounded in the code |
+| [docs/concurrency.md](docs/concurrency.md) | Scenarios A–D: races, mechanisms, alternatives, tests |
+| [docs/docker.md](docs/docker.md) | Images, network, volume, health checks, commands |
+| [docs/performance.md](docs/performance.md) | k6 method, results, pool experiment, limitations |
+| [docs/milestone-1-audit.md](docs/milestone-1-audit.md) | The original audit, design proposal and a log of every milestone |
 
 ---
 
-## Known Limitations
-
-- **Branch matching for eligibility and Recommended Jobs** is literal substring matching between the student's `branch` field and a job's `eligibleBranches` field, both free text. This means wording differences (e.g. "Computer Applications" vs "MCA") won't match even when they mean the same thing. A future version would replace free text with a shared enum/dropdown for both student profiles and job postings.
-- **Admin accounts** are provisioned manually via direct database update rather than an admin-invite flow.
-- **No password reset flow** yet.
-- **Backend cold starts:** on the free/basic App Service tier, the app spins down after inactivity and takes 10–20 seconds to respond to the first request after idle time.
-- The recommendation logic and analytics are intentionally simple (filter/count-based) rather than a scoring or ML-based system — a deliberate v1 scope decision.
-
----
-
-## What I Learned
-
-This project was built end-to-end solo, covering:
-- Designing a relational schema with proper foreign-key relationships across 7 tables
-- Implementing stateless JWT authentication with Spring Security, including role-based method security
-- Building a layered backend architecture (controller → service → repository → entity)
-- A React frontend with protected, role-based routing and a consistent design system built from scratch
-- Debugging real production-style issues: dependency version conflicts, stale build artifacts, deprecated third-party APIs, and Jackson/RestTemplate serialization conflicts
-- Integrating a third-party AI API (Google Gemini) server-side to keep API keys secure
-- **Deploying a full-stack app to Microsoft Azure from scratch**, including:
-  - Provisioning and configuring Azure Database for MySQL, App Service, and Static Web Apps
-  - Setting up and debugging two independent GitHub Actions CI/CD pipelines
-  - Diagnosing real cloud deployment issues: regional provisioning policies, Maven working-directory mismatches, missing startup commands, and environment variable propagation timing between build-time and runtime in a CI environment
-  - Securing secrets (DB credentials, JWT secret, API keys) via environment variables rather than committed config, both locally and in the cloud
-
----
-
-## License
-
-This project was built for educational/portfolio purposes.
+Built as a portfolio project.

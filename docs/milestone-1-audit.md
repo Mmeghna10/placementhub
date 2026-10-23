@@ -788,7 +788,13 @@ M9: frontend tests (2026-10-23).
   - `LoadingState` now has `role="status"`.
 - **Lines covered:** ~57%, concentrated on auth, the API layer and the student and recruiter flows.
 
-**Remaining:** M10 (interview prep docs).
+M10: documentation and interview preparation (2026-10-23).
+- **README rewritten** into a professional structure: overview, features, tech stack, architecture (diagram and code layout), database schema (ER diagram and migrations), authentication flow (sequence diagram), API conventions, concurrency summary, Docker, testing, observability, deployment, known limitations and future improvements.
+- **[interview-prep.md](interview-prep.md):** a two-minute pitch, a five-minute walkthrough and answers to the 14 interview questions. Each answer points at the real class, migration or test that backs it.
+- **New test found missing while writing the answers:** nothing proved that a student gets 404 for another student's application. `anotherStudentsApplicationLooksLikeItDoesNotExist` now does, and it was mutation-checked (it fails when the ownership check is removed).
+- **Tests:** 105 backend tests (1 new), 59 frontend tests.
+
+**Remaining (optional):** automated browser E2E tests (Playwright), refresh tokens, background jobs. All ten milestones are complete.
 
 **Known limitations (current):**
 - Rate limits are per instance (in memory). Several instances would need Redis.

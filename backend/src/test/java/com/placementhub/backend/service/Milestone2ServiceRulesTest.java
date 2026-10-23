@@ -3,9 +3,11 @@ package com.placementhub.backend.service;
 import com.placementhub.backend.dto.JobRequest;
 import com.placementhub.backend.dto.RecruiterProfileUpdateRequest;
 import com.placementhub.backend.dto.RegisterRequest;
+import com.placementhub.backend.entity.Application;
 import com.placementhub.backend.entity.Company;
 import com.placementhub.backend.entity.Job;
 import com.placementhub.backend.entity.Recruiter;
+import com.placementhub.backend.entity.Student;
 import com.placementhub.backend.entity.User;
 import com.placementhub.backend.enums.JobStatus;
 import com.placementhub.backend.enums.Role;
@@ -192,6 +194,53 @@ class Milestone2ServiceRulesTest {
             assertThatThrownBy(() -> recruiterService.updateProfile(request))
                     .isInstanceOf(BusinessRuleException.class);
             assertThat(company.getName()).isEqualTo("Acme");
+        }
+    }
+
+    @Nested
+    class StudentServiceRules {
+
+        private static final String EMAIL = "stu@example.com";
+
+        @Mock StudentRepository studentRepository;
+        @Mock JobRepository jobRepository;
+        @Mock ApplicationRepository applicationRepository;
+        @Mock ApplicationTimelineRepository timelineRepository;
+        @Mock JobMapper jobMapper;
+        @Mock ApplicationMapper applicationMapper;
+        @Mock EligibilityPolicy eligibilityPolicy;
+        @Mock Clock clock;
+        @InjectMocks StudentService studentService;
+
+        @BeforeEach
+        void loginAsStudent() {
+            SecurityContextHolder.getContext().setAuthentication(
+                    new UsernamePasswordAuthenticationToken(EMAIL, null, List.of()));
+
+            Student me = new Student();
+            me.setId(1L);
+            when(studentRepository.findByUser_Email(EMAIL)).thenReturn(Optional.of(me));
+        }
+
+        @AfterEach
+        void clearContext() {
+            SecurityContextHolder.clearContext();
+        }
+
+        @Test
+        void anotherStudentsApplicationLooksLikeItDoesNotExist() {
+            Student other = new Student();
+            other.setId(2L);
+            Application theirs = new Application();
+            theirs.setId(50L);
+            theirs.setStudent(other);
+            when(applicationRepository.findById(50L)).thenReturn(Optional.of(theirs));
+
+            // Same 404 as for an id that does not exist, so ids cannot be probed.
+            assertThatThrownBy(() -> studentService.getApplicationDetails(50L))
+                    .isInstanceOf(NotFoundException.class)
+                    .hasMessage("Application not found");
+            verify(applicationMapper, never()).toResponse(any());
         }
     }
 
