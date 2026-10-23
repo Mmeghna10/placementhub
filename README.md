@@ -209,23 +209,43 @@ DELETE FROM students WHERE user_id = (SELECT id FROM users WHERE email = 'your-a
 
 ## Deployment Architecture
 
-```
-GitHub (main branch)
-   ├── push triggers → GitHub Actions (backend workflow)
-   │        → Maven build → JAR artifact → Azure App Service (Linux, Java 17 SE)
-   │                                              ↓
-   │                                    Azure Database for MySQL
-   │
-   └── push triggers → GitHub Actions (frontend workflow)
-            → Vite build (with VITE_API_BASE_URL baked in via GitHub Secret)
-            → Azure Static Web Apps
+```mermaid
+flowchart LR
+    PR[Pull request / push to main] --> CI
+    subgraph CI["CI (.github/workflows/ci.yml)"]
+        B["Backend: 104 tests<br/>against MySQL 8.0.46"]
+        F["Frontend: lint, npm audit, build"]
+        D["Docker: build both images,<br/>Trivy scan"]
+    end
+    CI -- all green --> DB["Deploy backend<br/>Azure App Service"]
+    CI -- all green --> DF["Deploy frontend<br/>Azure Static Web Apps"]
+    CI -- any failure --> X["Nothing is deployed"]
+    DB --> M[(Azure Database for MySQL)]
 ```
 
-Both pipelines are fully automated — any push to `main` redeploys the affected app automatically, no manual steps required.
+**Every deployment is tested first.** Both deploy workflows (`main_placementhub-backend2.yml` and `azure-static-web-apps-....yml`) call the reusable `ci.yml` and `need` it to pass:
+
+| CI job | What it checks | Fails the pipeline when |
+|---|---|---|
+| Backend tests (MySQL) | `./mvnw verify`: all unit, security, concurrency, migration and integration tests, against a throwaway MySQL service container | any test fails |
+| Frontend | `npm ci`, ESLint, `npm audit --omit=dev --audit-level=critical`, `npm run build` | lint error, critical vulnerability, or build error |
+| Docker images | builds the backend and frontend images, then scans them with Trivy (HIGH/CRITICAL reported) | a CRITICAL vulnerability that already has a fix |
+
+Pull requests show the same checks before merging. On a push to `main`, a red check means the live site keeps running the previous version.
+
+**Safe release procedure:**
+1. Open a pull request.
+2. Wait for all CI checks to pass.
+3. Merge.
+4. Watch the Actions tab until both deploys succeed.
+5. Confirm `/actuator/health/readiness` reports `UP`.
+6. **Rollback:** re-run the deploy workflow of the last good commit (Actions tab → that run → *Re-run all jobs*), or revert the merge commit with a pull request. Database migrations are forward-only: never edit an applied migration; undo a schema change with a new one, and take a backup (Azure point-in-time restore) before releasing a migration.
+
+**Recommended GitHub setting (one-time, repository owner):** Settings → Branches → *Add branch protection rule* for `main` → *Require status checks to pass before merging* → select the three CI checks. This also stops merging a pull request whose tests fail.
 
 **Key deployment details worth knowing:**
 - The backend's startup command is explicitly set (`java -jar /home/site/wwwroot/*.jar`) rather than relying on Azure's auto-detection, since the JAR isn't in the default expected path.
-- The Maven build step skips tests during CI (`-DskipTests`), since the test suite would otherwise try to load a Spring context requiring a live database connection that isn't available in the CI runner.
+- The deploy job packages the jar with `-DskipTests` **only because the CI job of the same run has already run every test** against a MySQL service container.
 - **Schema migrations run automatically on startup.** When the new JAR starts on App Service, Flyway applies any pending `db/migration` scripts to Azure MySQL before the app accepts traffic. The database user therefore needs permission to create tables and indexes. Migrations are forward-only: to undo one, ship a new migration. Take a backup (or rely on Azure's point-in-time restore) before deploying a release that contains a migration.
 - CORS on the backend explicitly allowlists the deployed frontend's origin — required since frontend and backend are hosted on separate Azure services with different domains.
 - `VITE_API_BASE_URL` is injected via a GitHub Actions secret at build time (not runtime), since Vite bakes environment variables into the built JS bundle.

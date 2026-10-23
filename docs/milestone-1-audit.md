@@ -752,13 +752,26 @@ M7: observability and load testing (2026-10-23). Details: [performance.md](perfo
   - a `sed` edit corrupted `nginx.conf`, which was restored from git and re-applied.
 - **Tests:** 104/104 backend tests pass (5 new observability tests).
 
-**Remaining:** M8–M10.
+M8: CI/CD (2026-10-23).
+- **CI workflow:** `ci.yml` (reusable, can also be run by hand) has three jobs:
+  - backend: `./mvnw verify`, all 104 tests, against a MySQL 8.0.46 service container;
+  - frontend: lint, `npm audit` (fails on critical), build;
+  - docker: build both images, Trivy scan (fails on a fixable CRITICAL).
+- **Deploys gated:** both Azure deploy workflows now `need` CI. No more untested deploys (`-DskipTests` alone). Pull requests get the same checks.
+- **Vulnerabilities found by the new scans, and fixed:**
+  - Spring Boot 4.1.0 → **4.1.2**: CRITICAL issues in spring-webmvc (including RCE) and Tomcat, plus HIGH issues in Jackson;
+  - nginx base 1.28.0 → **1.30.6**, plus OS package upgrades in both images: from 7 CRITICAL / ~60 HIGH fixable findings to **0**;
+  - `npm audit fix` (axios, follow-redirects, vite, source-map-js): **0** runtime vulnerabilities.
+- **Executable bit:** `backend/mvnw` is now executable in git; Linux CI and Docker builds would have failed without it.
+- **Rehearsed locally:** the CI backend job ran in a clean Linux container on a fresh clone with no secrets file (104/104, BUILD SUCCESS), and so did the frontend job (lint, 0 vulnerabilities, build).
+
+**Remaining:** M9 (frontend tests), M10 (interview prep docs).
 
 **Known limitations (current):**
 - Rate limits are per instance (in memory). Several instances would need Redis.
 - On Azure, the client IP comes from the forwarded header that Spring Boot applies automatically. Not yet verified with two different real clients.
 - Branch eligibility is substring matching on free text.
 - Interview times have no time zone on the client; they're shown in the browser's local time and assume users are in IST.
-- Azure App Service doesn't use the new health endpoint yet. Set **Health check path = `/actuator/health/readiness`** in the portal.
-- Integration tests still need a MySQL database supplied through environment variables. CI will provide one as a service container (M8).
+- Azure App Service health check: set **Health check path = `/actuator/health/readiness`** in the portal, if not done already.
+- Branch protection (require the CI checks before merging) is a repository setting the owner has to switch on; see the README.
 - Load numbers are from one laptop and are for comparing changes. Azure hasn't been load-tested; that would need a staging copy.
