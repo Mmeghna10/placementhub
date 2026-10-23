@@ -36,3 +36,28 @@ spring:
       maximum-pool-size: 10
       minimum-idle: 2
       connection-timeout: 5000
+
+  lifecycle:
+    # On SIGTERM (docker stop, redeploy) finish in-flight requests for up to 20 s before exiting.
+    timeout-per-shutdown-phase: 20s
+
+server:
+  shutdown: graceful
+
+# Health checks for Docker, Azure App Service and load balancers. Only health is exposed;
+# no other actuator endpoint (env, beans, heapdump...) is reachable over HTTP.
+#   /actuator/health/liveness  - the process is up (restart the container if this fails)
+#   /actuator/health/readiness - also checks MySQL (stop sending traffic if this fails)
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health
+  endpoint:
+    health:
+      probes:
+        enabled: true
+      show-details: never
+      group:
+        readiness:
+          include: readinessState, db

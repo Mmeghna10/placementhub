@@ -108,12 +108,24 @@ placementhub/
 
 ## Running Locally
 
-### Prerequisites
+### Option A: Docker (recommended, one command)
+You only need **Docker Desktop**: no Java, Node or MySQL installation.
+```powershell
+copy .env.example .env      # then open .env and replace every change-me value
+docker compose up --build -d
+```
+Open **http://localhost:3000** and log in with `ADMIN_EMAIL` / `ADMIN_PASSWORD` from `.env`; the admin account is created automatically on the first start. API docs are at http://localhost:3000/swagger-ui.html.
+
+`docker compose ps` shows health, `docker compose logs -f backend` follows the logs, `docker compose down` stops the stack (data is kept), and `docker compose down -v` also deletes the database. All commands and an explanation of the images, network, volume and health checks are in **[docs/docker.md](docs/docker.md)**.
+
+### Option B: run each part yourself
+
+#### Prerequisites
 - JDK 17+
 - Node.js 18+
 - MySQL 8
 
-### 1. Database
+#### 1. Database
 ```sql
 CREATE DATABASE placementhub_db;
 ```
@@ -123,7 +135,7 @@ Databases created before Flyway was added (the original local and Azure database
 
 To change the schema, add a new `V<next>__description.sql` file. Never edit a migration that has already been applied.
 
-### 2. Backend
+#### 2. Backend
 Shared, non-secret settings (Flyway, JPA, connection pool) live in the committed `backend/src/main/resources/application.yaml`.
 
 Create `backend/src/main/resources/application.properties` for your local secrets. It is not committed (see `.gitignore`), and its values override `application.yaml`:
@@ -154,7 +166,7 @@ cd backend
 ```
 Runs on `http://localhost:8080`.
 
-### Running the backend tests
+#### Running the backend tests
 ```bash
 cd backend
 ./mvnw test
@@ -173,7 +185,7 @@ cd backend
   ```
   As a safety check, they refuse to run unless the database name ends in `_it` or `_test`.
 
-### 3. Frontend
+#### 3. Frontend
 Create `frontend/.env`:
 ```
 VITE_API_BASE_URL=http://localhost:8080
@@ -186,8 +198,8 @@ npm run dev
 ```
 Runs on `http://localhost:5173`.
 
-### 4. First admin account
-Admins aren't self-registered. Register a normal account via the UI, then promote it manually:
+#### 4. First admin account
+Admins can't sign up through the website. Either set `APP_BOOTSTRAP_ADMIN_EMAIL` and `APP_BOOTSTRAP_ADMIN_PASSWORD` (12+ characters) before starting the backend, and the account is created automatically, or register a normal account and promote it manually:
 ```sql
 UPDATE users SET role = 'ADMIN' WHERE email = 'your-admin-email@example.com';
 DELETE FROM students WHERE user_id = (SELECT id FROM users WHERE email = 'your-admin-email@example.com');

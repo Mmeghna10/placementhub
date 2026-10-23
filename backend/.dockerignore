@@ -1,0 +1,17 @@
+# Keep the build context small and, above all, free of secrets.
+
+# Local secrets: configuration comes from environment variables in containers.
+src/main/resources/application.properties
+src/main/resources/application-*.properties
+**/.env
+
+# Build output and tooling that the image builds itself.
+target/
+.mvn/wrapper/maven-wrapper.jar
+
+# Not part of the Java app.
+venv/
+HELP.md
+.idea/
+.vscode/
+*.iml

@@ -1,0 +1,8 @@
+node_modules/
+dist/
+.vite/
+# Local .env points at a specific backend (e.g. Azure). In Docker the app talks to its own
+# backend through nginx on the same origin, so no environment file may be baked in.
+.env
+.env.*
+npm-debug.log*

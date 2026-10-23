@@ -701,11 +701,41 @@ M5: API polish (2026-10-22).
   - 3 docs tests.
   - **Mutation-checked:** without `LIKE` escaping, searching "%" returned every job.
 
-**Remaining:** M6–M10.
+M5 shipped to Azure on 2026-10-22. Swagger is live at `/swagger-ui.html`, and rate limiting was confirmed live (429 after 5 sign-ups).
+
+M6: Docker (2026-10-23). Guide: [docker.md](docker.md).
+- **One-command stack:** `compose.yaml` runs MySQL 8.0.46 (named volume), the backend and the frontend.
+  - Start-up is gated by health checks: mysql `mysqladmin ping` over TCP → backend readiness (includes the database) → frontend.
+  - `.env.example` is the template; the real `.env` is git-ignored.
+- **Backend image:**
+  - multi-stage build with the Maven wrapper, a cached dependency layer, and a layered jar;
+  - JRE-only runtime running as a non-root `placementhub` user;
+  - container-aware heap; graceful shutdown (20 s);
+  - `.dockerignore` keeps `application.properties` out of the image, and the built image was inspected to confirm it.
+- **Frontend image:**
+  - Node build stage, then unprivileged nginx (75 MB);
+  - same-origin `/api` proxy, so there's no hard-coded backend URL and no CORS;
+  - SPA fallback, cache headers and security headers;
+  - nginx **replaces** `X-Forwarded-For`, so a client can't fake its IP to dodge rate limits (found and fixed during testing).
+- **Actuator:**
+  - only `health` is exposed (liveness/readiness probes, no details);
+  - `/actuator/env` and the other endpoints are not reachable (tested).
+- **`AdminBootstrap`:** creates the first admin from `APP_BOOTSTRAP_ADMIN_*`. It's idempotent and never promotes an existing account. This replaces the manual SQL promotion step.
+- **`docker` profile:** no SQL logging, trusts forwarded headers from the nginx proxy.
+- **Verified by hand:**
+  - built and started from scratch: all 3 containers healthy, 4 migrations applied, admin created;
+  - in the browser: wrong-password message, login, search, apply, refresh on a deep link, Swagger;
+  - rate limiting through nginx, per client;
+  - `down`/`up` keeps the data, with no re-migration and no second admin;
+  - shutdown takes 3 s; a full start until healthy takes 23 s.
+- **Tests:** 99/99 backend tests pass (7 new: admin bootstrap, health endpoints).
+
+**Remaining:** M7–M10.
 
 **Known limitations (current):**
 - Rate limits are per instance (in memory). Several instances would need Redis.
 - On Azure, the client IP comes from the forwarded header that Spring Boot applies automatically. Not yet verified with two different real clients.
 - Branch eligibility is substring matching on free text.
 - Interview times have no time zone on the client; they're shown in the browser's local time and assume users are in IST.
-- `BackendApplicationTests` and the integration tests need MySQL. There is no Docker/Testcontainers yet (M6/M8).
+- Azure App Service doesn't use the new health endpoint yet. Set **Health check path = `/actuator/health/readiness`** in the portal.
+- Integration tests still need a MySQL database supplied through environment variables. CI will provide one as a service container (M8).

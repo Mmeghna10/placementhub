@@ -1,0 +1,25 @@
+# Active when SPRING_PROFILES_ACTIVE=docker (set in compose.yaml).
+# Datasource, JWT secret and other secrets still come from environment variables;
+# this file only holds container-specific, non-secret defaults.
+
+spring:
+  jpa:
+    show-sql: false
+
+# Browsers reach the API through the nginx container on the same origin (/api), so no
+# cross-origin requests are expected; keep the allow-list to the local Vite dev servers.
+app:
+  cors:
+    allowed-origins: http://localhost:5173,http://localhost:3000
+
+# Behind the nginx container: trust its X-Forwarded-For / -Proto headers (Tomcat only
+# accepts them from private network addresses), so rate limiting sees the real client IP
+# instead of nginx's.
+server:
+  forward-headers-strategy: native
+
+logging:
+  level:
+    root: INFO
+    # One line per startup migration is useful; per-statement SQL is not.
+    org.flywaydb: INFO

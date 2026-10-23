@@ -83,6 +83,11 @@
 			<groupId>org.flywaydb</groupId>
 			<artifactId>flyway-mysql</artifactId>
 		</dependency>
+		<!-- /actuator/health, /actuator/health/liveness and /readiness for Docker and Azure -->
+		<dependency>
+			<groupId>org.springframework.boot</groupId>
+			<artifactId>spring-boot-starter-actuator</artifactId>
+		</dependency>
 		<!-- OpenAPI 3 docs + Swagger UI at /swagger-ui.html (3.1.x targets Spring Boot 4.1) -->
 		<dependency>
 			<groupId>org.springdoc</groupId>

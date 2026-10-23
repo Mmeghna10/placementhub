@@ -72,6 +72,8 @@ public class SecurityConfig {
                 .requestMatchers("/error").permitAll()
                 // API docs describe endpoints only; every endpoint still checks its own auth.
                 .requestMatchers("/swagger-ui.html", "/swagger-ui/**", "/v3/api-docs/**").permitAll()
+                // Health probes for Docker/Azure: only UP/DOWN, no details (show-details: never).
+                .requestMatchers("/actuator/health", "/actuator/health/**").permitAll()
                 .anyRequest().authenticated()
             )
             .exceptionHandling(ex -> ex
