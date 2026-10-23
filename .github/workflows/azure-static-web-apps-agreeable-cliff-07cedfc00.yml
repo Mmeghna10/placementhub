@@ -10,12 +10,21 @@ on:
       - main
 
 jobs:
+  # All tests (with MySQL), frontend checks and Docker image scans; also the status checks
+  # shown on pull requests. The deploy (or PR preview) below waits for it.
+  ci:
+    if: github.event_name == 'push' || (github.event_name == 'pull_request' && github.event.action != 'closed')
+    uses: ./.github/workflows/ci.yml
+    permissions:
+      contents: read
+
   build_and_deploy_job:
+    needs: ci
     if: github.event_name == 'push' || (github.event_name == 'pull_request' && github.event.action != 'closed')
     runs-on: ubuntu-latest
     name: Build and Deploy Job
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v4
         with:
           submodules: true
           lfs: false

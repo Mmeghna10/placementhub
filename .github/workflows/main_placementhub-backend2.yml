@@ -10,7 +10,15 @@ on:
   workflow_dispatch:
 
 jobs:
+  # All tests (with MySQL), frontend checks and Docker image scans. Nothing below runs
+  # unless every CI job passes.
+  ci:
+    uses: ./.github/workflows/ci.yml
+    permissions:
+      contents: read
+
   build:
+    needs: ci
     runs-on: ubuntu-latest
     permissions:
       contents: read #This is required for actions/checkout
@@ -24,8 +32,10 @@ jobs:
           java-version: '17'
           distribution: 'microsoft'
 
-      - name: Build with Maven
-        run: mvn clean install -DskipTests
+      # Tests already ran (and passed) in the ci job of this same run against MySQL;
+      # this only packages the jar, with the project's pinned Maven wrapper.
+      - name: Package the application
+        run: ./mvnw -B -ntp clean package -DskipTests
         working-directory: ./backend
 
       - name: Upload artifact for deployment job
