@@ -765,7 +765,30 @@ M8: CI/CD (2026-10-23).
 - **Executable bit:** `backend/mvnw` is now executable in git; Linux CI and Docker builds would have failed without it.
 - **Rehearsed locally:** the CI backend job ran in a clean Linux container on a fresh clone with no secrets file (104/104, BUILD SUCCESS), and so did the frontend job (lint, 0 vulnerabilities, build).
 
-**Remaining:** M9 (frontend tests), M10 (interview prep docs).
+M7 and M8 shipped to Azure on 2026-10-23 (pull request #7). CI ran before both deploys, and the live backend returns request IDs.
+
+M9: frontend tests (2026-10-23).
+- **Tools:** Vitest 5.0.3, React Testing Library 16.3.3, user-event and jest-dom, jsdom 30.1.2. All are exact-pinned dev dependencies.
+- **59 tests in 11 files:**
+  - axios interceptor: Bearer header, session expiry, and the wrong-password regression;
+  - ProtectedRoute;
+  - Login and Register;
+  - BrowseJobs: loading, results, query params, empty state, Recommended, paging, error;
+  - JobDetails: apply, double-click, 409 as "applied", not eligible, closed job, not found;
+  - ApplicationDetail: slots, booking double-click, slot full, cancel and confirm;
+  - ApplicantsList: allowed next statuses, version sent, 409 conflict;
+  - InterviewSlots;
+  - MyJobs;
+  - admin ManageJobs.
+- **Mutation-checked:** removing the Apply double-click guard, restoring the old 401 redirect, or not sending the version each makes exactly the matching test fail.
+- **CI:** `npm test` now runs in the frontend CI job (the job name is unchanged, so required checks still match).
+- **Verified on Linux** (the CI case): 59/59 pass. A broken test file or zero test files exits with code 1, so CI can't pass while testing nothing.
+- **Accessibility fixes found while writing the tests:**
+  - Login/Register labels weren't linked to their inputs; `htmlFor`/`id` added;
+  - `LoadingState` now has `role="status"`.
+- **Lines covered:** ~57%, concentrated on auth, the API layer and the student and recruiter flows.
+
+**Remaining:** M10 (interview prep docs).
 
 **Known limitations (current):**
 - Rate limits are per instance (in memory). Several instances would need Redis.

@@ -46,10 +46,11 @@ export default function Login() {
 
         <form onSubmit={handleSubmit} className="space-y-5">
           <div>
-            <label className="block text-xs font-medium text-slate uppercase tracking-wide mb-1.5">
+            <label htmlFor="login-email" className="block text-xs font-medium text-slate uppercase tracking-wide mb-1.5">
               Email
             </label>
             <input
+              id="login-email"
               type="email"
               required
               value={email}
@@ -60,10 +61,11 @@ export default function Login() {
           </div>
 
           <div>
-            <label className="block text-xs font-medium text-slate uppercase tracking-wide mb-1.5">
+            <label htmlFor="login-password" className="block text-xs font-medium text-slate uppercase tracking-wide mb-1.5">
               Password
             </label>
             <input
+              id="login-password"
               type="password"
               required
               value={password}

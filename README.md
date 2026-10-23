@@ -166,6 +166,26 @@ cd backend
 ```
 Runs on `http://localhost:8080`.
 
+#### Running the frontend tests
+```bash
+cd frontend
+npm test                 # all component tests once
+npm run test:watch       # re-run on save
+npm run test:coverage    # with a coverage report in frontend/coverage/
+```
+59 tests (Vitest + React Testing Library in jsdom) cover:
+- login, registration and route protection;
+- session expiry and the wrong-password message;
+- job search, filters and pagination;
+- applying, including double-click and "already applied";
+- interview booking and cancelling;
+- recruiter status changes, including version conflicts;
+- slots and job closing;
+- admin approval;
+- loading, empty and error states.
+
+API calls are mocked, so no backend is needed.
+
 #### Running the backend tests
 ```bash
 cd backend

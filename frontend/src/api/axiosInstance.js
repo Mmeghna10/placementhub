@@ -12,6 +12,15 @@ axiosInstance.interceptors.request.use((config) => {
   return config;
 });
 
+// Full page load to the login screen; a separate object so tests can replace it.
+export const sessionNavigation = {
+  toLogin() {
+    if (window.location.pathname !== '/login') {
+      window.location.href = '/login';
+    }
+  },
+};
+
 axiosInstance.interceptors.response.use(
   (response) => response,
   (error) => {
@@ -23,9 +32,7 @@ axiosInstance.interceptors.response.use(
     if (error.response?.status === 401 && !isAuthRequest) {
       localStorage.removeItem('token');
       localStorage.removeItem('user');
-      if (window.location.pathname !== '/login') {
-        window.location.href = '/login';
-      }
+      sessionNavigation.toLogin();
     }
     return Promise.reject(error);
   }
