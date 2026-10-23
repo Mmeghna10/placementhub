@@ -19,6 +19,11 @@ server:
   forward-headers-strategy: native
 
 logging:
+  # One JSON object per line (Elastic Common Schema), including requestId from the MDC,
+  # so logs can be shipped to and searched in a log tool instead of grepped as text.
+  structured:
+    format:
+      console: ecs
   level:
     root: INFO
     # One line per startup migration is useful; per-statement SQL is not.

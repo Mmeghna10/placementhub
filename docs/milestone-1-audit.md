@@ -730,7 +730,29 @@ M6: Docker (2026-10-23). Guide: [docker.md](docker.md).
   - shutdown takes 3 s; a full start until healthy takes 23 s.
 - **Tests:** 99/99 backend tests pass (7 new: admin bootstrap, health endpoints).
 
-**Remaining:** M7–M10.
+M6 shipped to Azure on 2026-10-23. Live `/actuator/health/readiness` returns UP, including the Azure database.
+
+M7: observability and load testing (2026-10-23). Details: [performance.md](performance.md).
+- **Request IDs:** `RequestIdFilter` runs first in the filter chain. Each request's ID is in the `X-Request-Id` header, in `requestId` in error bodies, and as a `[requestId]` prefix on every log line. Unsafe incoming IDs are replaced.
+- **Access log:** one line per request with its duration. Health probes and query strings are left out.
+- **JSON logs:** ECS format in the `docker` profile.
+- **Admin-only metrics** (`/actuator/metrics`): HTTP p50/p95/p99, the Hikari connection pool, and the JVM.
+- **Slow-query log:** SQL over 200 ms.
+- **k6 load test:** `load-tests/k6/placementhub.js`, run on an isolated stack by `load-tests/run-load-test.ps1`, with four scenarios and correctness thresholds.
+- **Baseline (pool 10, one laptop):**
+  - browse p95 6.6–7.6 ms;
+  - **2,200–2,400 search requests/s** at p95 40–45 ms;
+  - apply burst (200 students × 3 simultaneous clicks) left exactly 200 applications;
+  - slot burst left exactly 20/20 seats;
+  - 0 server errors.
+- **Pool experiment:** 20 connections gives ~2,650 req/s with a 2.3 ms connection wait (vs 7.7 ms). The pool stays at 10, because the expected peak (~150 req/s) is far below where the difference shows. The size is configurable.
+- **Bugs found and fixed during the work:**
+  - load-test script: k6 numbers VUs across all scenarios, so a per-scenario counter is needed;
+  - nginx didn't forward `/actuator/metrics`;
+  - a `sed` edit corrupted `nginx.conf`, which was restored from git and re-applied.
+- **Tests:** 104/104 backend tests pass (5 new observability tests).
+
+**Remaining:** M8–M10.
 
 **Known limitations (current):**
 - Rate limits are per instance (in memory). Several instances would need Redis.
@@ -739,3 +761,4 @@ M6: Docker (2026-10-23). Guide: [docker.md](docker.md).
 - Interview times have no time zone on the client; they're shown in the browser's local time and assume users are in IST.
 - Azure App Service doesn't use the new health endpoint yet. Set **Health check path = `/actuator/health/readiness`** in the portal.
 - Integration tests still need a MySQL database supplied through environment variables. CI will provide one as a service container (M8).
+- Load numbers are from one laptop and are for comparing changes. Azure hasn't been load-tested; that would need a staging copy.

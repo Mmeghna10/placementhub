@@ -274,6 +274,17 @@ With the backend running, open **`http://localhost:8080/swagger-ui.html`** (or y
 
 Over the limit, the API returns **429** with a `Retry-After` header and `code: RATE_LIMITED`, and the request never reaches the password check or the Gemini API. The limits use an in-memory token bucket (`backend/.../ratelimit/`), so they apply per backend instance; several instances would need a shared store such as Redis. Adjust them with `APP_RATE_LIMIT_LOGIN_PER_MINUTE`, `APP_RATE_LIMIT_REGISTER_PER_10_MINUTES` and `APP_RATE_LIMIT_CHAT_PER_10_MINUTES`, or turn them off with `APP_RATE_LIMIT_ENABLED=false`.
 
+### Observability and performance
+- Every request gets an `X-Request-Id`. It's in the response header, in JSON error bodies and on every log line for that request; in Docker, logs are JSON.
+- Admins can read latency percentiles, error counts and database pool metrics at `/actuator/metrics`.
+- SQL statements slower than 200 ms are logged.
+- **Load-tested with k6** (`load-tests/run-load-test.ps1`, on an isolated throwaway stack):
+  - ~2,200–2,400 search requests/s at p95 40–45 ms on one laptop;
+  - 200 simultaneous applicants × 3 clicks left exactly 200 applications;
+  - 100 students racing for 20 seats left exactly 20 bookings;
+  - 0 server errors.
+  - Method, raw numbers, a connection-pool experiment and limitations are in **[docs/performance.md](docs/performance.md)**.
+
 ### Concurrency and data consistency
 Duplicate applications, applications racing a job closure, overbooked interview slots and conflicting status updates are all prevented in the database. Each case is proven by tests that fire 20 simultaneous requests at real MySQL. See **[docs/concurrency.md](docs/concurrency.md)**.
 
