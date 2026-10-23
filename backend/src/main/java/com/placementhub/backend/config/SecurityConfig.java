@@ -74,6 +74,8 @@ public class SecurityConfig {
                 .requestMatchers("/swagger-ui.html", "/swagger-ui/**", "/v3/api-docs/**").permitAll()
                 // Health probes for Docker/Azure: only UP/DOWN, no details (show-details: never).
                 .requestMatchers("/actuator/health", "/actuator/health/**").permitAll()
+                // Latency, error and connection-pool metrics: useful to operators, not to the public.
+                .requestMatchers("/actuator/metrics", "/actuator/metrics/**").hasRole("ADMIN")
                 .anyRequest().authenticated()
             )
             .exceptionHandling(ex -> ex

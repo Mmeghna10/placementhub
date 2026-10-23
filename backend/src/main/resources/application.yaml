@@ -20,6 +20,8 @@ spring:
         # Safety net against N+1: lazy associations/collections not covered by a fetch
         # join are loaded in batches of up to 50 ids per query.
         default_batch_fetch_size: 50
+        # Log any SQL statement slower than this (logger org.hibernate.SQL_SLOW).
+        session.events.log.LOG_QUERIES_SLOWER_THAN_MS: 200
 
   flyway:
     enabled: true
@@ -52,7 +54,8 @@ management:
   endpoints:
     web:
       exposure:
-        include: health
+        # health is public (probes); metrics is ADMIN-only (see SecurityConfig).
+        include: health, metrics
   endpoint:
     health:
       probes:
@@ -61,3 +64,16 @@ management:
       group:
         readiness:
           include: readinessState, db
+  metrics:
+    distribution:
+      # Publish p50/p95/p99 response times per endpoint (GET /actuator/metrics/http.server.requests.percentile).
+      percentiles:
+        http.server.requests: 0.5, 0.95, 0.99
+
+logging:
+  pattern:
+    # Prefix every plain-text log line with the request's correlation id (RequestIdFilter).
+    correlation: "[%X{requestId:-}] "
+  level:
+    # Hibernate reports queries slower than the threshold below on this logger.
+    org.hibernate.SQL_SLOW: INFO

@@ -18,7 +18,15 @@ RUN npm run build
 
 # ---------- Runtime stage: nginx serving files and proxying /api ----------
 # The "unprivileged" image runs nginx as a non-root user, listening on 8080.
-FROM nginxinc/nginx-unprivileged:1.28.0-alpine
+# 1.30.x is nginx's current stable line; 1.30.6 is the first patch release with no known
+# fixable HIGH/CRITICAL issue (Trivy scan, 2026-10-23). CI re-scans every build.
+FROM nginxinc/nginx-unprivileged:1.30.6-alpine3.24
+
+# Apply the latest Alpine security updates on top of the pinned base image, then drop
+# back to the unprivileged nginx user.
+USER root
+RUN apk upgrade --no-cache
+USER nginx
 
 COPY nginx.conf /etc/nginx/conf.d/default.conf
 COPY --from=build /app/dist /usr/share/nginx/html

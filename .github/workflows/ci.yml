@@ -1,0 +1,161 @@
+# Continuous integration: every check that must pass before anything is deployed.
+#
+# Called by both deploy workflows (backend: main_placementhub-backend2.yml, frontend:
+# azure-static-web-apps-...yml), whose deploy jobs `need` it, so a failing test, lint
+# error, broken Docker build or critical vulnerability stops the deployment. Can also be
+# started by hand from the Actions tab.
+
+name: CI
+
+on:
+  workflow_call:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  backend:
+    name: Backend tests (MySQL)
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+
+    # A real MySQL, same major version as production, for Flyway, transactions,
+    # locking and the concurrency tests. Throwaway: exists only for this job.
+    services:
+      mysql:
+        image: mysql:8.0.46
+        env:
+          MYSQL_ROOT_PASSWORD: ci-only-root-password
+          MYSQL_DATABASE: placementhub_ci
+        ports:
+          - 3306:3306
+        options: >-
+          --health-cmd="mysqladmin ping -h 127.0.0.1 --silent"
+          --health-interval=5s --health-timeout=3s --health-retries=30
+
+    env:
+      # Full application context test (BackendApplicationTests).
+      SPRING_DATASOURCE_URL: jdbc:mysql://127.0.0.1:3306/placementhub_ci
+      SPRING_DATASOURCE_USERNAME: root
+      SPRING_DATASOURCE_PASSWORD: ci-only-root-password
+      APP_JWT_SECRET: ci-only-jwt-secret-used-nowhere-else-0123456789
+      APP_JWT_EXPIRATIONMS: "3600000"
+      GEMINI_API_KEY: ""
+      GEMINI_API_MODEL: unused-in-ci
+      # MySQL integration tests (it/*): need a database whose name ends in _it.
+      PLACEMENTHUB_IT_DB_URL: jdbc:mysql://127.0.0.1:3306/placementhub_it
+      PLACEMENTHUB_IT_DB_USER: root
+      PLACEMENTHUB_IT_DB_PASSWORD: ci-only-root-password
+
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Set up JDK 17
+        uses: actions/setup-java@v6
+        with:
+          distribution: temurin
+          java-version: '17'
+          cache: maven
+
+      - name: Create the integration-test database
+        run: mysql -h 127.0.0.1 -u root -p"$PLACEMENTHUB_IT_DB_PASSWORD" -e "CREATE DATABASE placementhub_it CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci"
+
+      - name: Build and run all tests
+        working-directory: backend
+        run: ./mvnw -B -ntp verify
+
+      - name: Keep test reports when something failed
+        if: failure()
+        uses: actions/upload-artifact@v7
+        with:
+          name: backend-test-reports
+          path: backend/target/surefire-reports/
+          retention-days: 7
+
+  frontend:
+    name: Frontend lint, audit and build
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    defaults:
+      run:
+        working-directory: frontend
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Set up Node 22
+        uses: actions/setup-node@v7
+        with:
+          node-version: '22'
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+
+      - run: npm ci
+      - run: npm run lint
+      - name: Fail on critical vulnerabilities in runtime dependencies
+        run: npm audit --omit=dev --audit-level=critical
+      - run: npm run build
+
+  docker:
+    name: Docker images build and scan
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v7
+      - uses: docker/setup-buildx-action@v4
+
+      - name: Build backend image
+        uses: docker/build-push-action@v7
+        with:
+          context: backend
+          load: true
+          tags: placementhub-backend:ci
+          cache-from: type=gha,scope=backend
+          cache-to: type=gha,scope=backend,mode=max
+
+      - name: Build frontend image
+        uses: docker/build-push-action@v7
+        with:
+          context: frontend
+          load: true
+          tags: placementhub-frontend:ci
+          cache-from: type=gha,scope=frontend
+          cache-to: type=gha,scope=frontend,mode=max
+
+      # Report HIGH and CRITICAL findings, but only fail on a CRITICAL one that already has
+      # a fix: those mean "upgrade now". Failing on every new HIGH would block deploys for
+      # issues nobody can fix yet.
+      - name: Scan backend image (report)
+        uses: aquasecurity/trivy-action@v0.36.0
+        with:
+          image-ref: placementhub-backend:ci
+          scanners: vuln
+          severity: HIGH,CRITICAL
+          format: table
+          exit-code: '0'
+      - name: Scan backend image (fail on fixable CRITICAL)
+        uses: aquasecurity/trivy-action@v0.36.0
+        with:
+          image-ref: placementhub-backend:ci
+          scanners: vuln
+          severity: CRITICAL
+          ignore-unfixed: true
+          format: table
+          exit-code: '1'
+      - name: Scan frontend image (report)
+        uses: aquasecurity/trivy-action@v0.36.0
+        with:
+          image-ref: placementhub-frontend:ci
+          scanners: vuln
+          severity: HIGH,CRITICAL
+          format: table
+          exit-code: '0'
+      - name: Scan frontend image (fail on fixable CRITICAL)
+        uses: aquasecurity/trivy-action@v0.36.0
+        with:
+          image-ref: placementhub-frontend:ci
+          scanners: vuln
+          severity: CRITICAL
+          ignore-unfixed: true
+          format: table
+          exit-code: '1'

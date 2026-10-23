@@ -1,0 +1,10 @@
+# Overrides for the isolated load-test stack (used by run-load-test.ps1 together with the
+# main compose.yaml and its own project name, so it never touches your normal data).
+services:
+  backend:
+    environment:
+      # Hundreds of test sign-ups come from one IP; the limiter would (correctly) refuse
+      # them. Rate limiting has its own tests, so it is switched off for this stack only.
+      APP_RATE_LIMIT_ENABLED: "false"
+      # Connection pool size for experiments (run-load-test.ps1 -PoolSize 20); default as in production.
+      SPRING_DATASOURCE_HIKARI_MAXIMUMPOOLSIZE: ${HIKARI_POOL_SIZE:-10}

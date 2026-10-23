@@ -21,8 +21,10 @@ RUN --mount=type=cache,target=/root/.m2 ./mvnw -B -q package -DskipTests \
 # ---------- Runtime stage: JRE only, no compiler or Maven ----------
 FROM eclipse-temurin:17.0.20_8-jre-noble
 
-# curl is used by the health check.
+# Install the latest Ubuntu security updates on top of the pinned base image (the base
+# tag is fixed, its OS packages are not frozen in time), plus curl for the health check.
 RUN apt-get update \
+    && apt-get upgrade -y --no-install-recommends \
     && apt-get install -y --no-install-recommends curl \
     && rm -rf /var/lib/apt/lists/* \
     && groupadd --system placementhub \
