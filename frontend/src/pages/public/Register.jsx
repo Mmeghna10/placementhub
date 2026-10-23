@@ -75,10 +75,11 @@ export default function Register() {
           </div>
 
           <div>
-            <label className="block text-xs font-medium text-slate uppercase tracking-wide mb-1.5">
+            <label htmlFor="register-full-name" className="block text-xs font-medium text-slate uppercase tracking-wide mb-1.5">
               Full Name
             </label>
             <input
+              id="register-full-name"
               type="text"
               name="fullName"
               required
@@ -90,10 +91,11 @@ export default function Register() {
           </div>
 
           <div>
-            <label className="block text-xs font-medium text-slate uppercase tracking-wide mb-1.5">
+            <label htmlFor="register-email" className="block text-xs font-medium text-slate uppercase tracking-wide mb-1.5">
               Email
             </label>
             <input
+              id="register-email"
               type="email"
               name="email"
               required
@@ -105,10 +107,11 @@ export default function Register() {
           </div>
 
           <div>
-            <label className="block text-xs font-medium text-slate uppercase tracking-wide mb-1.5">
+            <label htmlFor="register-password" className="block text-xs font-medium text-slate uppercase tracking-wide mb-1.5">
               Password
             </label>
             <input
+              id="register-password"
               type="password"
               name="password"
               required
