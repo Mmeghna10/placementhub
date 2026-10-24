@@ -813,6 +813,22 @@ Final gap-closing pass (2026-10-24), after re-checking every section of the orig
 - **Runner scripts** (`run-e2e.ps1`, `run-load-test.ps1`) now always start from a clean stack.
 - **Tests:** 106 backend (all passed locally against MySQL 8.0.46), 59 frontend, 15 end-to-end (all passed locally).
 
+UI refresh (2026-10-24, pull request #11):
+- **Visual refresh, same brand:**
+  - new shared components (logo, stat cards, company avatars, job chips, auth layout);
+  - redesigned landing, login/register, dashboards, job and application pages;
+  - readable salaries and dates; checked at desktop and phone width.
+- **Fixed:** the admin "Review now" link showed all jobs instead of the pending queue (with a test).
+- **Fixed flaky frontend tests:** typing tests timed out on a busy machine; the same failures reproduced on `main`. Longer timeouts make parallel runs pass 8/8.
+
+Security headers (2026-10-25):
+- **Problem:** the live Azure frontend sent no Content-Security-Policy and no anti-framing header, although §9.4 relies on "a strict CSP" to limit the risk of keeping the token in `localStorage`.
+- **Added on both Azure (`staticwebapp.config.json`) and Docker (`nginx.conf`, page only, so Swagger is unaffected):**
+  - CSP with scripts from the app's own origin only, Google Fonts allowed, `connect-src` limited to the app and its API;
+  - `frame-ancestors 'none'`, `X-Frame-Options: DENY`, `nosniff`, `Referrer-Policy`, `Permissions-Policy`.
+- **Tests:** two new E2E tests check the headers and that no page (charts and fonts included) violates the policy. Mutation-checked: removing Google Fonts from the policy makes the test fail.
+- **Totals:** 106 backend, 64 frontend, 17 end-to-end tests.
+
 **Deliberately not built** (no requirement yet; see §8 and the README): Redis, background jobs, refresh tokens.
 
 **Known limitations (current):**

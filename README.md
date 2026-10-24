@@ -196,7 +196,7 @@ sequenceDiagram
   - **Ownership checks in the services:** another student's application or another recruiter's job returns **404**, so the response does not reveal that the record exists.
 - **Expired or invalid token:** the API returns a JSON 401 such as "Your session has expired". The Axios interceptor then clears the session and sends the user to the login page. A wrong password on the login form is shown as an error and does *not* trigger that redirect.
 - **Logout** is client-side: the token is deleted from the browser. Tokens are not revoked on the server. That is acceptable with a 24 h lifetime, and deactivating an account works immediately because of the database check above.
-- **Why localStorage and not a cookie:** the Azure frontend and backend are on different domains, and a header token avoids CSRF and cross-site cookie setup. The cost is that a successful XSS attack could read the token. That is mitigated by React's escaping, no raw HTML rendering and security headers, and noted under [Known limitations](#known-limitations).
+- **Why localStorage and not a cookie:** the Azure frontend and backend are on different domains, and a header token avoids CSRF and cross-site cookie setup. The cost is that a successful XSS attack could read the token. That is mitigated by React's escaping, no raw HTML rendering, and a **Content-Security-Policy** that only allows scripts from the app's own origin (plus anti-framing headers), on both Azure (`staticwebapp.config.json`) and Docker (`nginx.conf`). It is also noted under [Known limitations](#known-limitations).
 
 ---
 
@@ -298,8 +298,8 @@ Prerequisites: JDK 17+, Node.js 20+, MySQL 8.
 |---|---|---|---|
 | Backend unit and web tests | part of 106 | Business rules and the status state machine, token bucket, JWT/security rules (401/403/404 for other users' data), admin bootstrap | `cd backend` then `./mvnw test` |
 | Backend MySQL integration tests | part of 106 | Flyway migrations, transaction rollback, **N+1 query counts**, search SQL, **concurrency scenarios A–D**, health, observability, OpenAPI | same, with `PLACEMENTHUB_IT_DB_*` set (below) |
-| Frontend component tests | 59 | Login/register, route protection, session expiry, search/filters/paging, apply (double-click, 409), booking, recruiter status changes with version conflicts, admin approval, loading/empty/error states | `cd frontend` then `npm test` |
-| **End-to-end (Playwright)** | 15 | The 7 journeys in a real browser against the full Docker stack: register and log in; see eligible jobs; apply (double-click sends one request); duplicate refused; recruiter reviews their own applicant; admin approves jobs; invalid and unauthorized requests refused (401/403/404/400, route guards) | `e2e\run-e2e.ps1` |
+| Frontend component tests | 64 | Login/register, route protection, session expiry, search/filters/paging, apply (double-click, 409), booking, recruiter status changes with version conflicts, admin approval, loading/empty/error states | `cd frontend` then `npm test` |
+| **End-to-end (Playwright)** | 17 | The 7 journeys in a real browser against the full Docker stack, plus the security headers (CSP present, no page violates it): register and log in; see eligible jobs; apply (double-click sends one request); duplicate refused; recruiter reviews their own applicant; admin approves jobs; invalid and unauthorized requests refused (401/403/404/400, route guards) | `e2e\run-e2e.ps1` |
 | Load test (k6) | 4 scenarios | Throughput and latency, plus correctness under bursts | `load-tests\run-load-test.ps1` |
 
 The MySQL integration tests need an empty database whose name ends in `_it` or `_test`. They are skipped when it is not configured:
@@ -340,8 +340,8 @@ flowchart LR
     PR[Pull request / push to main] --> CI
     subgraph CI["ci.yml"]
         B["Backend: 106 tests<br/>on MySQL 8.0.46"]
-        F["Frontend: lint, 59 tests,<br/>npm audit, build"]
-        E["E2E: 15 Playwright tests<br/>on the full Docker stack"]
+        F["Frontend: lint, 64 tests,<br/>npm audit, build"]
+        E["E2E: 17 Playwright tests<br/>on the full Docker stack"]
         D["Docker: build images,<br/>Trivy scan"]
     end
     CI -- all green --> DB["Deploy backend<br/>Azure App Service"]
@@ -376,7 +376,7 @@ flowchart LR
 - **Branch eligibility** is substring matching on free text ("MCA" does not match "Computer Applications").
 - **Interview times** have no time zone on the client; they assume users are in IST.
 - **Load numbers come from one laptop.** Azure has not been load-tested; that would need a staging copy.
-- **Frontend line coverage is about 57%** (component tests). The main journeys are also covered end to end.
+- **Frontend line coverage is about 59%** (component tests; measured with `npm run test:coverage`). The main journeys are also covered end to end.
 - **Cold starts** on the basic App Service plan.
 
 ## Future improvements
