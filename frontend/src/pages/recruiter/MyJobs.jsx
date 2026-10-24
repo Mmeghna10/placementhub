@@ -51,12 +51,12 @@ export default function MyJobs() {
     <DashboardLayout>
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div>
-          <h1 className="font-display text-2xl font-semibold text-ink">My Jobs</h1>
-          <div className="mt-1 w-12 border-t border-ink/30" />
+          <h1 className="font-display text-[1.75rem] font-semibold text-ink tracking-tight">My Jobs</h1>
+          <div className="mt-2 h-1 w-10 rounded-full bg-brass/70" />
         </div>
         <Link
           to="/recruiter/jobs/new"
-          className="flex items-center gap-1.5 px-4 py-2 bg-ink text-paper rounded-md text-sm font-medium hover:bg-ink/90 transition self-start"
+          className="flex items-center gap-1.5 px-4 py-2 bg-ink text-paper rounded-lg text-sm font-medium hover:bg-ink/90 transition self-start"
         >
           <Plus size={16} />
           Post a Job
@@ -69,7 +69,7 @@ export default function MyJobs() {
         ) : jobs.length === 0 ? (
           <EmptyState title="No jobs posted yet" description="Post your first role to start receiving applications." />
         ) : (
-          <div className="bg-white border border-ink/10 rounded-lg divide-y divide-ink/10">
+          <div className="bg-white border border-ink/[0.08] rounded-xl shadow-card divide-y divide-ink/10">
             {jobs.map((job) => (
               <div
                 key={job.id}

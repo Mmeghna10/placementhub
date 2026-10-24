@@ -1,16 +1,18 @@
 import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { Search } from 'lucide-react';
+import { ArrowUpRight, Search } from 'lucide-react';
 import DashboardLayout from '../../components/DashboardLayout';
 import LoadingState from '../../components/LoadingState';
 import EmptyState from '../../components/EmptyState';
 import Pagination from '../../components/Pagination';
+import CompanyAvatar from '../../components/CompanyAvatar';
+import JobMeta from '../../components/JobMeta';
 import { searchJobs } from '../../api/studentApi';
 
 const PAGE_SIZE = 10;
 const emptyFilters = { q: '', jobType: '', location: '', sort: 'newest' };
 const inputClass =
-  'px-3 py-2 bg-white border border-ink/15 rounded-md text-sm text-ink focus:outline-none focus:ring-2 focus:ring-teal/40 focus:border-teal transition';
+  'px-3 py-2 bg-white border border-ink/15 rounded-lg text-sm text-ink focus:outline-none focus:ring-2 focus:ring-teal/40 focus:border-teal transition';
 
 export default function BrowseJobs() {
   const [jobs, setJobs] = useState([]);
@@ -59,13 +61,13 @@ export default function BrowseJobs() {
     <DashboardLayout>
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div>
-          <h1 className="font-display text-2xl font-semibold text-ink">
+          <h1 className="font-display text-[1.75rem] font-semibold text-ink tracking-tight">
             {showRecommended ? 'Recommended For You' : 'Open Roles'}
           </h1>
-          <div className="mt-1 w-12 border-t border-ink/30" />
+          <div className="mt-2 h-1 w-10 rounded-full bg-brass/70" />
         </div>
 
-        <div className="flex bg-white border border-ink/10 rounded-md p-1 self-start">
+        <div className="flex bg-white border border-ink/10 rounded-lg p-1 self-start">
           <button
             onClick={() => showRecommended && runQuery({ eligibleOnly: false, page: 0 })}
             className={`px-3.5 py-1.5 rounded text-sm font-medium transition ${!showRecommended ? 'bg-ink text-paper' : 'text-slate'}`}
@@ -100,7 +102,7 @@ export default function BrowseJobs() {
           <option value="deadline">Deadline soonest</option>
           <option value="salary">Highest salary</option>
         </select>
-        <button type="submit" className="px-4 py-2 bg-ink text-paper rounded-md text-sm font-medium hover:bg-ink/90 transition">
+        <button type="submit" className="px-4 py-2 bg-ink text-paper rounded-lg text-sm font-medium hover:bg-ink/90 transition">
           Search
         </button>
         {filtersActive && (
@@ -127,33 +129,25 @@ export default function BrowseJobs() {
           />
         ) : (
           <>
-            <p className="text-xs font-mono text-slate mb-3">{pageInfo.totalElements} role{pageInfo.totalElements === 1 ? '' : 's'}</p>
+            <p className="text-sm text-slate mb-4">{pageInfo.totalElements} role{pageInfo.totalElements === 1 ? '' : 's'}</p>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               {jobs.map((job) => (
                 <Link
                   key={job.id}
                   to={`/student/jobs/${job.id}`}
-                  className="bg-white border border-ink/10 rounded-lg p-5 hover:border-teal/40 transition"
+                  className="group flex flex-col bg-white border border-ink/[0.08] rounded-xl shadow-card p-5 hover:shadow-card-hover hover:border-teal/30 hover:-translate-y-0.5 transition"
                 >
-                  <p className="text-xs font-mono uppercase tracking-wide text-brass">{job.companyName}</p>
-                  <h3 className="font-display text-lg font-semibold text-ink mt-1">{job.title}</h3>
-                  <p className="text-sm text-slate mt-2 line-clamp-2">{job.description}</p>
-                  <div className="flex flex-wrap items-center gap-x-3 gap-y-1 mt-4 text-xs text-slate">
-                    <span>{job.location}</span>
-                    <span>·</span>
-                    <span>{job.jobType?.replace('_', ' ')}</span>
-                    {job.salaryMin && (
-                      <>
-                        <span>·</span>
-                        <span>₹{job.salaryMin.toLocaleString()}–{job.salaryMax?.toLocaleString()}</span>
-                      </>
-                    )}
-                    {job.applicationDeadline && (
-                      <>
-                        <span>·</span>
-                        <span>Apply by {job.applicationDeadline}</span>
-                      </>
-                    )}
+                  <div className="flex items-start gap-3.5">
+                    <CompanyAvatar name={job.companyName} />
+                    <div className="min-w-0 flex-1">
+                      <h3 className="font-display text-lg font-semibold text-ink leading-snug group-hover:text-teal transition">{job.title}</h3>
+                      <p className="text-sm text-slate mt-0.5">{job.companyName}</p>
+                    </div>
+                    <ArrowUpRight size={18} className="text-slate/30 group-hover:text-teal transition shrink-0" />
+                  </div>
+                  <p className="text-sm text-slate mt-3 line-clamp-2 flex-1">{job.description}</p>
+                  <div className="mt-4">
+                    <JobMeta job={job} />
                   </div>
                 </Link>
               ))}

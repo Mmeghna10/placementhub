@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { loginUser } from '../../api/authApi';
 import { useAuth } from '../../context/AuthContext';
+import AuthLayout, { authInputClass, authLabelClass } from '../../components/AuthLayout';
 
 export default function Login() {
   const [email, setEmail] = useState('');
@@ -31,70 +32,65 @@ export default function Login() {
   };
 
   return (
-    <div className="min-h-screen bg-paper flex items-center justify-center px-6">
-      <div className="w-full max-w-sm">
-        <div className="mb-10 text-center">
-          <h1 className="font-display text-3xl font-semibold text-ink tracking-tight">
-            PlacementHub
-          </h1>
-          <div className="mt-3 mx-auto w-16 border-t border-ink/30" />
-          <div className="mt-1 mx-auto w-16 border-t border-ink/30" />
-          <p className="mt-4 text-sm text-slate font-body">
-            Sign in to your account
-          </p>
-        </div>
-
-        <form onSubmit={handleSubmit} className="space-y-5">
-          <div>
-            <label htmlFor="login-email" className="block text-xs font-medium text-slate uppercase tracking-wide mb-1.5">
-              Email
-            </label>
-            <input
-              id="login-email"
-              type="email"
-              required
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              className="w-full px-3.5 py-2.5 bg-white border border-ink/15 rounded-md text-ink placeholder:text-slate/50 focus:outline-none focus:ring-2 focus:ring-teal/40 focus:border-teal transition"
-              placeholder="you@college.edu"
-            />
-          </div>
-
-          <div>
-            <label htmlFor="login-password" className="block text-xs font-medium text-slate uppercase tracking-wide mb-1.5">
-              Password
-            </label>
-            <input
-              id="login-password"
-              type="password"
-              required
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              className="w-full px-3.5 py-2.5 bg-white border border-ink/15 rounded-md text-ink placeholder:text-slate/50 focus:outline-none focus:ring-2 focus:ring-teal/40 focus:border-teal transition"
-              placeholder="••••••••"
-            />
-          </div>
-
-          {error && (
-            <p className="text-sm text-brick font-medium">{error}</p>
-          )}
-
-          <button
-            type="submit"
-            disabled={loading}
-            className="w-full py-2.5 bg-ink text-paper rounded-md font-medium hover:bg-ink/90 transition disabled:opacity-50"
-          >
-            {loading ? 'Signing in…' : 'Sign In'}
-          </button>
-        </form>
-
-        <p className="mt-6 text-center text-sm text-slate">
+    <AuthLayout
+      title="Welcome back"
+      subtitle="Sign in to your account"
+      footer={
+        <>
           Don't have an account?{' '}
           <Link to="/register" className="text-teal font-medium hover:underline">
             Create one
           </Link>
-        </p>
-      </div>
-    </div>
+        </>
+      }
+    >
+      <form onSubmit={handleSubmit} className="space-y-5">
+        <div>
+          <label htmlFor="login-email" className={authLabelClass}>
+            Email
+          </label>
+          <input
+            id="login-email"
+            type="email"
+            required
+            autoComplete="email"
+            value={email}
+            onChange={(e) => setEmail(e.target.value)}
+            className={authInputClass}
+            placeholder="you@college.edu"
+          />
+        </div>
+
+        <div>
+          <label htmlFor="login-password" className={authLabelClass}>
+            Password
+          </label>
+          <input
+            id="login-password"
+            type="password"
+            required
+            autoComplete="current-password"
+            value={password}
+            onChange={(e) => setPassword(e.target.value)}
+            className={authInputClass}
+            placeholder="••••••••"
+          />
+        </div>
+
+        {error && (
+          <p role="alert" className="text-sm text-brick font-medium bg-brick/5 border border-brick/15 rounded-lg px-3 py-2">
+            {error}
+          </p>
+        )}
+
+        <button
+          type="submit"
+          disabled={loading}
+          className="w-full py-2.5 bg-ink text-paper rounded-lg font-semibold hover:bg-ink/90 transition disabled:opacity-50 shadow-sm"
+        >
+          {loading ? 'Signing in…' : 'Sign In'}
+        </button>
+      </form>
+    </AuthLayout>
   );
 }

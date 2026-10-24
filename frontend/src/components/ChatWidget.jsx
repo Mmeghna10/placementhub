@@ -52,7 +52,7 @@ export default function ChatWidget() {
       </button>
 
       {open && (
-        <div className="fixed bottom-24 right-6 w-[340px] max-w-[calc(100vw-3rem)] h-[460px] bg-white border border-ink/10 rounded-lg shadow-xl flex flex-col z-50">
+        <div className="fixed bottom-24 right-6 w-[340px] max-w-[calc(100vw-3rem)] h-[460px] bg-white border border-ink/[0.08] rounded-xl shadow-card shadow-xl flex flex-col z-50">
           <div className="bg-ink px-4 py-3 rounded-t-lg">
             <p className="font-display text-sm font-semibold text-paper">PlacementHub Guide</p>
           </div>
@@ -84,12 +84,12 @@ export default function ChatWidget() {
               value={input}
               onChange={(e) => setInput(e.target.value)}
               placeholder="Ask a question…"
-              className="flex-1 px-3 py-2 text-sm bg-paper border border-ink/15 rounded-md focus:outline-none focus:ring-2 focus:ring-teal/40"
+              className="flex-1 px-3 py-2 text-sm bg-paper border border-ink/15 rounded-lg focus:outline-none focus:ring-2 focus:ring-teal/40"
             />
             <button
               type="submit"
               disabled={loading}
-              className="w-9 h-9 flex items-center justify-center bg-ink text-paper rounded-md hover:bg-ink/90 transition disabled:opacity-50"
+              className="w-9 h-9 flex items-center justify-center bg-ink text-paper rounded-lg hover:bg-ink/90 transition disabled:opacity-50"
             >
               <Send size={16} />
             </button>

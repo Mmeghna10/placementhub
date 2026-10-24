@@ -66,7 +66,7 @@ test.describe.serial('Placement journey', () => {
     await page.goto('/admin/jobs?pending=true');
     await expect(page.getByRole('heading', { name: 'Pending Approvals' })).toBeVisible();
     for (const title of [eligibleTitle, ineligibleTitle]) {
-      const row = page.locator('div.flex.items-center.justify-between').filter({ hasText: title });
+      const row = page.getByTestId('job-row').filter({ hasText: title });
       await row.getByRole('button', { name: 'Approve' }).click();
       await expect(row).toHaveCount(0);
     }
@@ -146,7 +146,7 @@ test.describe.serial('Placement journey', () => {
     await expect(page).toHaveURL(/\/recruiter\/dashboard$/);
     await page.goto(`/recruiter/jobs/${eligibleJob.id}/applicants`);
 
-    const applicant = page.locator('div.px-5.py-4').filter({ hasText: student.name });
+    const applicant = page.getByTestId('applicant').filter({ hasText: student.name });
     await expect(applicant).toContainText('National Institute of Technology');
     await expect(applicant).toContainText('APPLIED');
 

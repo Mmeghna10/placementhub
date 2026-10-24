@@ -3,6 +3,9 @@ import { useParams, useNavigate } from 'react-router-dom';
 import DashboardLayout from '../../components/DashboardLayout';
 import LoadingState from '../../components/LoadingState';
 import StatusBadge from '../../components/StatusBadge';
+import CompanyAvatar from '../../components/CompanyAvatar';
+import { ArrowLeft, CalendarDays, History } from 'lucide-react';
+import { calendarParts, formatDateTime } from '../../utils/jobFormat';
 import {
   getApplicationDetails,
   getInterviewSlots,
@@ -50,21 +53,23 @@ function InterviewSection({ application, onChanged }) {
   const booking = application.interview;
 
   return (
-    <div className="bg-white border border-ink/10 rounded-lg p-8 max-w-xl mb-6">
-      <h2 className="text-xs font-medium text-slate uppercase tracking-wide mb-4">Interview</h2>
+    <div className="bg-white border border-ink/[0.08] rounded-xl shadow-card p-6 sm:p-7">
+      <h2 className="flex items-center gap-2 text-xs font-semibold text-slate uppercase tracking-wider mb-4">
+        <CalendarDays size={15} className="text-teal" /> Interview
+      </h2>
 
       {booking ? (
         <div>
-          <p className="text-sm text-ink">
-            Booked for <span className="font-medium">{new Date(booking.startsAt).toLocaleString()}</span>
+          <p className="text-sm text-ink bg-emerald-50 border border-emerald-200 rounded-lg px-3 py-2">
+            Booked for <span className="font-semibold">{formatDateTime(booking.startsAt)}</span>
           </p>
-          <p className="text-xs text-slate mt-1">
+          <p className="text-xs text-slate mt-2">
             {booking.durationMinutes} min{booking.location && ` · ${booking.location}`}
           </p>
           <button
             onClick={() => confirm('Cancel this interview booking?') && run(() => cancelInterviewBooking(application.id))}
             disabled={busy}
-            className="mt-4 px-4 py-2 border border-brick/40 text-brick rounded-md text-sm font-medium hover:bg-brick/5 transition disabled:opacity-50"
+            className="mt-4 px-4 py-2 border border-brick/40 text-brick rounded-lg text-sm font-medium hover:bg-brick/5 transition disabled:opacity-50"
           >
             Cancel booking
           </button>
@@ -77,9 +82,13 @@ function InterviewSection({ application, onChanged }) {
         <div className="space-y-3">
           <p className="text-sm text-slate">Pick one slot:</p>
           {slots.map((slot) => (
-            <div key={slot.id} className="flex items-center justify-between gap-3 border border-ink/10 rounded-md px-4 py-3">
-              <div>
-                <p className="text-sm font-medium text-ink">{new Date(slot.startsAt).toLocaleString()}</p>
+            <div key={slot.id} className="flex items-center gap-4 border border-ink/10 rounded-lg px-4 py-3 hover:border-teal/30 transition">
+              <div className="h-12 w-12 shrink-0 rounded-lg bg-teal/10 text-teal flex flex-col items-center justify-center leading-none" aria-hidden="true">
+                <span className="text-lg font-semibold">{calendarParts(slot.startsAt).day}</span>
+                <span className="text-[10px] uppercase tracking-wide mt-0.5">{calendarParts(slot.startsAt).month}</span>
+              </div>
+              <div className="flex-1 min-w-0">
+                <p className="text-sm font-medium text-ink">{formatDateTime(slot.startsAt)}</p>
                 <p className="text-xs text-slate mt-0.5">
                   {slot.durationMinutes} min{slot.location && ` · ${slot.location}`} · {slot.seatsLeft} seat{slot.seatsLeft === 1 ? '' : 's'} left
                 </p>
@@ -87,7 +96,7 @@ function InterviewSection({ application, onChanged }) {
               <button
                 onClick={() => run(() => bookInterviewSlot(application.id, slot.id))}
                 disabled={busy || slot.seatsLeft === 0}
-                className="px-4 py-1.5 bg-ink text-paper rounded-md text-sm font-medium hover:bg-ink/90 transition disabled:opacity-40"
+                className="px-4 py-1.5 bg-ink text-paper rounded-lg text-sm font-medium hover:bg-ink/90 transition disabled:opacity-40"
               >
                 {slot.seatsLeft === 0 ? 'Full' : 'Book'}
               </button>
@@ -117,48 +126,57 @@ export default function ApplicationDetail() {
 
   return (
     <DashboardLayout>
-      <button onClick={() => navigate('/student/applications')} className="text-sm text-teal hover:underline mb-6">
-        ← Back to applications
+      <button
+        onClick={() => navigate('/student/applications')}
+        className="inline-flex items-center gap-1.5 text-sm font-medium text-slate hover:text-teal mb-6 transition"
+      >
+        <ArrowLeft size={15} /> Back to applications
       </button>
 
-      <div className="flex items-start justify-between mb-8">
-        <div>
-          <h1 className="font-display text-2xl font-semibold text-ink">{application.jobTitle}</h1>
-          <p className="text-sm text-slate mt-1">{application.companyName}</p>
+      <div className="flex flex-col items-start sm:flex-row sm:items-center justify-between gap-4 mb-8">
+        <div className="flex items-center gap-4">
+          <CompanyAvatar name={application.companyName} size="lg" />
+          <div>
+            <h1 className="font-display text-[1.75rem] font-semibold text-ink tracking-tight leading-tight">{application.jobTitle}</h1>
+            <p className="text-sm text-slate mt-0.5">{application.companyName}</p>
+          </div>
         </div>
         <StatusBadge status={application.status} />
       </div>
+
+      <div className="grid gap-6 lg:grid-cols-2 items-start">
 
       {(application.status === 'INTERVIEW' || application.interview) && (
         <InterviewSection application={application} onChanged={() => setReloadKey((k) => k + 1)} />
       )}
 
-      <div className="bg-white border border-ink/10 rounded-lg p-8 max-w-xl">
-        <h2 className="text-xs font-medium text-slate uppercase tracking-wide mb-6">Timeline</h2>
+      <div className="bg-white border border-ink/[0.08] rounded-xl shadow-card p-6 sm:p-7 lg:order-first">
+        <h2 className="flex items-center gap-2 text-xs font-semibold text-slate uppercase tracking-wider mb-6">
+          <History size={15} className="text-teal" /> Timeline
+        </h2>
 
         <div className="space-y-0">
           {application.timeline.map((entry, i) => (
             <div key={i} className="flex gap-4">
               <div className="flex flex-col items-center">
-                <div className="w-2.5 h-2.5 rounded-full bg-teal mt-1.5 shrink-0" />
+                <div className="w-3 h-3 rounded-full bg-teal ring-4 ring-teal/10 mt-1.5 shrink-0" />
                 {i < application.timeline.length - 1 && (
                   <div className="w-px flex-1 bg-ink/10 my-1" />
                 )}
               </div>
               <div className="pb-6">
-                <p className="text-sm font-medium text-ink font-mono uppercase tracking-wide">
-                  {entry.status}
-                </p>
+                <StatusBadge status={entry.status} />
                 {entry.remarks && (
-                  <p className="text-sm text-slate mt-1">{entry.remarks}</p>
+                  <p className="text-sm text-ink/80 mt-2">{entry.remarks}</p>
                 )}
-                <p className="text-xs font-mono text-slate/60 mt-1">
-                  {new Date(entry.changedAt).toLocaleString()}
+                <p className="text-xs text-slate/70 mt-1">
+                  {formatDateTime(entry.changedAt)}
                 </p>
               </div>
             </div>
           ))}
         </div>
+      </div>
       </div>
     </DashboardLayout>
   );

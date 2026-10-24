@@ -24,11 +24,11 @@ export default function Analytics() {
 
   return (
     <DashboardLayout>
-      <h1 className="font-display text-2xl font-semibold text-ink">Analytics</h1>
-      <div className="mt-1 w-12 border-t border-ink/30" />
+      <h1 className="font-display text-[1.75rem] font-semibold text-ink tracking-tight">Analytics</h1>
+      <div className="mt-2 h-1 w-10 rounded-full bg-brass/70" />
 
       <div className="mt-8 grid grid-cols-1 lg:grid-cols-2 gap-6">
-        <div className="bg-white border border-ink/10 rounded-lg p-6">
+        <div className="bg-white border border-ink/[0.08] rounded-xl shadow-card p-6">
           <h2 className="text-xs font-medium text-slate uppercase tracking-wide mb-6">
             Applications by Status
           </h2>
@@ -42,7 +42,7 @@ export default function Analytics() {
           </ResponsiveContainer>
         </div>
 
-        <div className="bg-white border border-ink/10 rounded-lg p-6">
+        <div className="bg-white border border-ink/[0.08] rounded-xl shadow-card p-6">
           <h2 className="text-xs font-medium text-slate uppercase tracking-wide mb-6">
             Job Postings Breakdown
           </h2>

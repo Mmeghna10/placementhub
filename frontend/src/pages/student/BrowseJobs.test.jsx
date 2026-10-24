@@ -30,7 +30,7 @@ describe('Browse jobs page', () => {
     expect(link).toHaveAttribute('href', '/student/jobs/1');
     expect(screen.getByText('Data Intern')).toBeInTheDocument();
     expect(screen.getByText('2 roles')).toBeInTheDocument();
-    expect(screen.getAllByText('Apply by 2026-12-31')).toHaveLength(2);
+    expect(screen.getAllByText('Apply by 31 Dec 2026')).toHaveLength(2);
   });
 
   it('asks the server for page 0, newest first, 10 per page', async () => {

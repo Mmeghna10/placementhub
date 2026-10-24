@@ -11,10 +11,45 @@
   --font-display: "Fraunces", serif;
   --font-body: "Inter", sans-serif;
   --font-mono: "IBM Plex Mono", monospace;
+
+  /* Soft, layered elevation for cards; stronger on hover. */
+  --shadow-card: 0 1px 2px rgb(14 27 42 / 0.04), 0 6px 20px -12px rgb(14 27 42 / 0.12);
+  --shadow-card-hover: 0 2px 4px rgb(14 27 42 / 0.05), 0 16px 32px -16px rgb(14 27 42 / 0.22);
 }
 
 body {
   background-color: var(--color-paper);
   color: var(--color-ink);
   font-family: var(--font-body);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+::selection {
+  background-color: rgb(176 141 87 / 0.3);
+}
+
+/* Visible keyboard focus everywhere, without showing it on mouse clicks. */
+:focus-visible {
+  outline: 2px solid var(--color-teal);
+  outline-offset: 2px;
+}
+
+/* Subtle dotted texture for dark hero panels. */
+.bg-grid {
+  background-image: radial-gradient(rgb(244 246 245 / 0.09) 1px, transparent 1px);
+  background-size: 22px 22px;
+}
+
+@keyframes fade-up {
+  from { opacity: 0; transform: translateY(6px); }
+  to { opacity: 1; transform: none; }
+}
+
+.animate-fade-up {
+  animation: fade-up 0.35s ease-out both;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .animate-fade-up { animation: none; }
 }

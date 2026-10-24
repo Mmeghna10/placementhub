@@ -2,6 +2,13 @@ import { useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { registerUser } from '../../api/authApi';
 import { useAuth } from '../../context/AuthContext';
+import { Briefcase, GraduationCap } from 'lucide-react';
+import AuthLayout, { authInputClass, authLabelClass } from '../../components/AuthLayout';
+
+const roleOptions = [
+  { value: 'STUDENT', label: 'Student', icon: GraduationCap },
+  { value: 'RECRUITER', label: 'Recruiter', icon: Briefcase },
+];
 
 export default function Register() {
   const [form, setForm] = useState({
@@ -38,111 +45,107 @@ export default function Register() {
   };
 
   return (
-    <div className="min-h-screen bg-paper flex items-center justify-center px-6 py-12">
-      <div className="w-full max-w-sm">
-        <div className="mb-10 text-center">
-          <h1 className="font-display text-3xl font-semibold text-ink tracking-tight">
-            PlacementHub
-          </h1>
-          <div className="mt-3 mx-auto w-16 border-t border-ink/30" />
-          <div className="mt-1 mx-auto w-16 border-t border-ink/30" />
-          <p className="mt-4 text-sm text-slate font-body">
-            Create your account
-          </p>
-        </div>
-
-        <form onSubmit={handleSubmit} className="space-y-5">
-          <div>
-            <label className="block text-xs font-medium text-slate uppercase tracking-wide mb-1.5">
-              I am a
-            </label>
-            <div className="grid grid-cols-2 gap-2">
-              {['STUDENT', 'RECRUITER'].map((r) => (
-                <button
-                  key={r}
-                  type="button"
-                  onClick={() => setForm({ ...form, role: r })}
-                  className={`py-2 rounded-md text-sm font-medium border transition ${
-                    form.role === r
-                      ? 'bg-ink text-paper border-ink'
-                      : 'bg-white text-slate border-ink/15 hover:border-ink/40'
-                  }`}
-                >
-                  {r === 'STUDENT' ? 'Student' : 'Recruiter'}
-                </button>
-              ))}
-            </div>
-          </div>
-
-          <div>
-            <label htmlFor="register-full-name" className="block text-xs font-medium text-slate uppercase tracking-wide mb-1.5">
-              Full Name
-            </label>
-            <input
-              id="register-full-name"
-              type="text"
-              name="fullName"
-              required
-              value={form.fullName}
-              onChange={handleChange}
-              className="w-full px-3.5 py-2.5 bg-white border border-ink/15 rounded-md text-ink placeholder:text-slate/50 focus:outline-none focus:ring-2 focus:ring-teal/40 focus:border-teal transition"
-              placeholder="Jordan Lee"
-            />
-          </div>
-
-          <div>
-            <label htmlFor="register-email" className="block text-xs font-medium text-slate uppercase tracking-wide mb-1.5">
-              Email
-            </label>
-            <input
-              id="register-email"
-              type="email"
-              name="email"
-              required
-              value={form.email}
-              onChange={handleChange}
-              className="w-full px-3.5 py-2.5 bg-white border border-ink/15 rounded-md text-ink placeholder:text-slate/50 focus:outline-none focus:ring-2 focus:ring-teal/40 focus:border-teal transition"
-              placeholder="you@college.edu"
-            />
-          </div>
-
-          <div>
-            <label htmlFor="register-password" className="block text-xs font-medium text-slate uppercase tracking-wide mb-1.5">
-              Password
-            </label>
-            <input
-              id="register-password"
-              type="password"
-              name="password"
-              required
-              minLength={6}
-              value={form.password}
-              onChange={handleChange}
-              className="w-full px-3.5 py-2.5 bg-white border border-ink/15 rounded-md text-ink placeholder:text-slate/50 focus:outline-none focus:ring-2 focus:ring-teal/40 focus:border-teal transition"
-              placeholder="At least 6 characters"
-            />
-          </div>
-
-          {error && (
-            <p className="text-sm text-brick font-medium">{error}</p>
-          )}
-
-          <button
-            type="submit"
-            disabled={loading}
-            className="w-full py-2.5 bg-ink text-paper rounded-md font-medium hover:bg-ink/90 transition disabled:opacity-50"
-          >
-            {loading ? 'Creating account…' : 'Create Account'}
-          </button>
-        </form>
-
-        <p className="mt-6 text-center text-sm text-slate">
+    <AuthLayout
+      title="Create your account"
+      subtitle="Join as a student looking for roles, or a recruiter hiring on campus."
+      footer={
+        <>
           Already have an account?{' '}
           <Link to="/login" className="text-teal font-medium hover:underline">
             Sign in
           </Link>
-        </p>
-      </div>
-    </div>
+        </>
+      }
+    >
+      <form onSubmit={handleSubmit} className="space-y-5">
+        <div>
+          <p className={authLabelClass}>I am a</p>
+          <div className="grid grid-cols-2 gap-3">
+            {roleOptions.map(({ value, label, icon: Icon }) => (
+              <button
+                key={value}
+                type="button"
+                aria-pressed={form.role === value}
+                onClick={() => setForm({ ...form, role: value })}
+                className={`flex items-center justify-center gap-2 py-2.5 rounded-lg text-sm font-medium border transition ${
+                  form.role === value
+                    ? 'bg-ink text-paper border-ink shadow-sm'
+                    : 'bg-white text-slate border-ink/15 hover:border-ink/40 hover:text-ink'
+                }`}
+              >
+                <Icon size={16} strokeWidth={1.9} />
+                {label}
+              </button>
+            ))}
+          </div>
+        </div>
+
+        <div>
+          <label htmlFor="register-full-name" className={authLabelClass}>
+            Full Name
+          </label>
+          <input
+            id="register-full-name"
+            type="text"
+            name="fullName"
+            required
+            autoComplete="name"
+            value={form.fullName}
+            onChange={handleChange}
+            className={authInputClass}
+            placeholder="Jordan Lee"
+          />
+        </div>
+
+        <div>
+          <label htmlFor="register-email" className={authLabelClass}>
+            Email
+          </label>
+          <input
+            id="register-email"
+            type="email"
+            name="email"
+            required
+            autoComplete="email"
+            value={form.email}
+            onChange={handleChange}
+            className={authInputClass}
+            placeholder="you@college.edu"
+          />
+        </div>
+
+        <div>
+          <label htmlFor="register-password" className={authLabelClass}>
+            Password
+          </label>
+          <input
+            id="register-password"
+            type="password"
+            name="password"
+            required
+            minLength={6}
+            autoComplete="new-password"
+            value={form.password}
+            onChange={handleChange}
+            className={authInputClass}
+            placeholder="At least 6 characters"
+          />
+        </div>
+
+        {error && (
+          <p role="alert" className="text-sm text-brick font-medium bg-brick/5 border border-brick/15 rounded-lg px-3 py-2">
+            {error}
+          </p>
+        )}
+
+        <button
+          type="submit"
+          disabled={loading}
+          className="w-full py-2.5 bg-ink text-paper rounded-lg font-semibold hover:bg-ink/90 transition disabled:opacity-50 shadow-sm"
+        >
+          {loading ? 'Creating account…' : 'Create Account'}
+        </button>
+      </form>
+    </AuthLayout>
   );
 }

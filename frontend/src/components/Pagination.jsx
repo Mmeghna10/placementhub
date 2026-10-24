@@ -3,7 +3,7 @@ export default function Pagination({ page, totalPages, totalElements, onPageChan
   if (totalPages <= 1) return null;
 
   const buttonClass =
-    'px-3 py-1.5 border border-ink/15 rounded-md text-xs font-medium text-ink hover:bg-ink/5 transition disabled:opacity-40 disabled:cursor-not-allowed';
+    'px-3 py-1.5 border border-ink/15 rounded-lg text-xs font-medium text-ink hover:bg-ink/5 transition disabled:opacity-40 disabled:cursor-not-allowed';
 
   return (
     <div className="flex items-center justify-between mt-4 text-xs text-slate">
