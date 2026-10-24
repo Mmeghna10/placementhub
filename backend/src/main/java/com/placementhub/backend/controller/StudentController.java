@@ -6,6 +6,12 @@ import com.placementhub.backend.service.InterviewSlotService;
 import com.placementhub.backend.service.StudentService;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.media.Content;
+import io.swagger.v3.oas.annotations.media.ExampleObject;
+import io.swagger.v3.oas.annotations.media.Schema;
+import io.swagger.v3.oas.annotations.responses.ApiResponse;
+import com.placementhub.backend.config.ApiExamples;
+import com.placementhub.backend.exception.ErrorResponse;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -68,6 +74,12 @@ public class StudentController {
     }
 
     @Operation(summary = "Apply to a job", description = "201 on success. 409 APPLICATION_ALREADY_EXISTS (also under simultaneous clicks), 422 JOB_NOT_OPEN / DEADLINE_PASSED / NOT_ELIGIBLE.")
+    @ApiResponse(responseCode = "201", description = "Application created", content = @Content(mediaType = "application/json",
+            schema = @Schema(implementation = ApplicationResponse.class), examples = @ExampleObject(value = ApiExamples.APPLICATION_RESPONSE)))
+    @ApiResponse(responseCode = "409", description = "Already applied (even under simultaneous clicks)", content = @Content(mediaType = "application/json",
+            schema = @Schema(implementation = ErrorResponse.class), examples = {@ExampleObject(name = "Already applied", value = ApiExamples.ALREADY_APPLIED)}))
+    @ApiResponse(responseCode = "422", description = "Job closed, deadline passed or not eligible", content = @Content(mediaType = "application/json",
+            schema = @Schema(implementation = ErrorResponse.class), examples = {@ExampleObject(name = "Not eligible", value = ApiExamples.NOT_ELIGIBLE), @ExampleObject(name = "Deadline passed", value = ApiExamples.DEADLINE_PASSED)}))
     @PostMapping("/jobs/{jobId}/apply")
     public ResponseEntity<ApplicationResponse> applyToJob(@PathVariable Long jobId) {
         return ResponseEntity.status(HttpStatus.CREATED).body(studentService.applyToJob(jobId));
@@ -78,6 +90,11 @@ public class StudentController {
         return ResponseEntity.ok(studentService.getMyApplications());
     }
 
+    @Operation(summary = "Get one of my applications", description = "404 also when the application belongs to another student, so ids cannot be probed.")
+    @ApiResponse(responseCode = "200", description = "The application with its timeline", content = @Content(mediaType = "application/json",
+            schema = @Schema(implementation = ApplicationResponse.class), examples = @ExampleObject(value = ApiExamples.APPLICATION_RESPONSE)))
+    @ApiResponse(responseCode = "404", description = "Not found, or not yours", content = @Content(mediaType = "application/json",
+            schema = @Schema(implementation = ErrorResponse.class), examples = {@ExampleObject(name = "Not found", value = ApiExamples.NOT_FOUND)}))
     @GetMapping("/applications/{id}")
     public ResponseEntity<ApplicationResponse> getApplicationDetails(@PathVariable Long id) {
         return ResponseEntity.ok(studentService.getApplicationDetails(id));
@@ -90,6 +107,10 @@ public class StudentController {
     }
 
     @Operation(summary = "Book an interview slot", description = "Application must be in INTERVIEW. 201 on success; 409 SLOT_FULL or ALREADY_BOOKED; 422 NOT_IN_INTERVIEW_STAGE / SLOT_IN_PAST.")
+    @ApiResponse(responseCode = "201", description = "Seat booked", content = @Content(mediaType = "application/json",
+            schema = @Schema(implementation = ApplicationResponse.class), examples = @ExampleObject(value = ApiExamples.APPLICATION_RESPONSE)))
+    @ApiResponse(responseCode = "409", description = "No seats left, or already booked", content = @Content(mediaType = "application/json",
+            schema = @Schema(implementation = ErrorResponse.class), examples = {@ExampleObject(name = "Slot full", value = ApiExamples.SLOT_FULL)}))
     @PostMapping("/applications/{id}/slots/{slotId}/booking")
     public ResponseEntity<ApplicationResponse> bookInterviewSlot(@PathVariable Long id, @PathVariable Long slotId) {
         return ResponseEntity.status(HttpStatus.CREATED).body(interviewSlotService.bookSlot(id, slotId));

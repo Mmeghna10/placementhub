@@ -1,0 +1,8 @@
+# Overrides for the isolated end-to-end test stack (used by run-e2e.ps1 and CI together
+# with the main compose.yaml and their own project name, so normal data is never touched).
+services:
+  backend:
+    environment:
+      # One test run signs up more users from one IP than the register limit (5 per
+      # 10 minutes) allows. Rate limiting has its own tests, so it is off for this stack only.
+      APP_RATE_LIMIT_ENABLED: "false"

@@ -447,15 +447,18 @@ sequenceDiagram
 
 ## 8. Redis evaluation
 
-| Use case | Needed now? | Reasoning |
-|---|---|---|
-| Job listing cache | No | < 500 jobs. An indexed, paginated query is a few ms. Invalidation on approve/edit/close adds bugs for no measurable gain. |
-| Dashboard/analytics cache | Not Redis | Admin-only, low QPS. If needed, Caffeine with a 60 s TTL; stale counts are acceptable. |
-| Rate limiting | Not yet | In-memory Bucket4j is fine for 1 instance. **This becomes the first real reason for Redis once there are ≥2 instances.** |
-| Uniqueness / locks | **Never** | Invariants belong in MySQL. Redis is not the source of truth. |
-| Background queue | No | No async work exists (no email/notifications yet) |
+Redis is evaluated per use case against the questions that decide it: why it would be needed, what would be stored, how entries expire and are invalidated, what happens if Redis is down, and whether stale data is acceptable. *(Updated after M10 to reflect the built system. The plan said Bucket4j for rate limiting; M5 built a small token bucket in `ratelimit/` instead, with no extra dependency.)*
 
-**Decision:** document it, don't add it. Revisit when k6 numbers or multi-instance deployment justify it.
+| Use case | Needed now? | Why it would be needed | Data and TTL | Invalidation | If Redis is down | Stale OK? |
+|---|---|---|---|---|---|---|
+| **Rate limiting** | Not with 1 instance. **First real reason** once there are 2+ instances. | In-memory buckets are per instance: with N instances a client gets N × the limit. | One counter per rule + IP (login/register) or user (chat), with a TTL equal to the window (1 or 10 min). | None needed; counters expire. | **Fail open** for login/register (BCrypt is still the real protection) and log a warning. Fail closed for chat if cost matters. | Yes, ± a few requests. |
+| **Approved job listings** | No | Only if measured search latency at peak became too slow. Today: p95 < 8 ms with think time, ~2,200 req/s at saturation (docs/performance.md). | First page per filter combination, 30–60 s TTL. | Evict on approve, edit, close or delete of a job. | Fall back to MySQL (cache-aside); slower, still correct. | Yes for a short time. The apply endpoint re-checks status and deadline in MySQL anyway. |
+| **Admin dashboard counts** | No | Admin-only, a handful of requests. | Counts JSON, 60 s TTL. | TTL only. | Query MySQL directly. | Yes. |
+| **Token revocation / refresh tokens** | No (not built) | Only if "log out everywhere" or refresh tokens are added. | Revoked token ids until their expiry. | TTL = token's remaining lifetime. | Must fail closed (reject), or revocation is meaningless. | No. |
+| **Background job queue** | No | No async work exists (no emails or notifications yet). | Job payloads. | Removed when processed. | Jobs wait; API unaffected. | n/a |
+| **Uniqueness, seats, status locks** | **Never** | These invariants are enforced by MySQL constraints, locks and atomic updates (docs/concurrency.md). A second source of truth could disagree with the database. | – | – | – | – |
+
+**Decision:** no Redis today. Each row above says which measured signal (a second instance, a slow p95, a new feature) would change that. Cache hit rate is not measured because there is no cache.
 
 ---
 
@@ -794,7 +797,23 @@ M10: documentation and interview preparation (2026-10-23).
 - **New test found missing while writing the answers:** nothing proved that a student gets 404 for another student's application. `anotherStudentsApplicationLooksLikeItDoesNotExist` now does, and it was mutation-checked (it fails when the ownership check is removed).
 - **Tests:** 105 backend tests (1 new), 59 frontend tests.
 
-**Remaining (optional):** automated browser E2E tests (Playwright), refresh tokens, background jobs. All ten milestones are complete.
+Final gap-closing pass (2026-10-24), after re-checking every section of the original brief:
+- **Automated end-to-end tests:** 15 Playwright tests in `e2e/` cover the 7 required journeys in Chromium against the full Docker stack:
+  - register and log in;
+  - eligible jobs;
+  - apply, with a double-click;
+  - duplicate refused;
+  - recruiter review;
+  - admin approval;
+  - invalid and unauthorized requests.
+  `e2e/run-e2e.ps1` runs them on an isolated throwaway stack, and a new CI job runs them on every pull request.
+- **Bug found by those tests and fixed:** behind nginx, the backend treated browser requests as cross-origin on any port other than 3000, because Tomcat reset the port to 80. nginx now forwards `X-Forwarded-Port`, and the hard-coded `localhost:3000` CORS entry is gone.
+- **OpenAPI examples:** register, login, apply, application details, status change and booking now show example requests, success responses and each failure case. A test checks that the examples are in the generated docs.
+- **Redis evaluation (§8) rewritten** per use case: data, TTL, invalidation, behaviour when Redis is down, and whether stale data is acceptable.
+- **Runner scripts** (`run-e2e.ps1`, `run-load-test.ps1`) now always start from a clean stack.
+- **Tests:** 106 backend (all passed locally against MySQL 8.0.46), 59 frontend, 15 end-to-end (all passed locally).
+
+**Deliberately not built** (no requirement yet; see §8 and the README): Redis, background jobs, refresh tokens.
 
 **Known limitations (current):**
 - Rate limits are per instance (in memory). Several instances would need Redis.

@@ -45,6 +45,11 @@ $compose = @('compose', '-p', $project, '-f', (Join-Path $root 'compose.yaml'),
              '-f', (Join-Path $PSScriptRoot 'compose.loadtest.yaml'), '--env-file', $envFile)
 
 try {
+    # A stack left over from -KeepStack has a database created with other passwords; start clean.
+    # Windows PowerShell treats docker's progress output on stderr as an error, so relax that here.
+    $ErrorActionPreference = 'Continue'
+    & docker @compose down -v *> $null
+    $ErrorActionPreference = 'Stop'
     Write-Host "Starting isolated stack '$project' (first build can take a few minutes)..."
     & docker @compose up --build -d --wait
     if ($LASTEXITCODE -ne 0) { throw "docker compose up failed" }
