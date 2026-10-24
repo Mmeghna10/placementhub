@@ -6,6 +6,12 @@ import com.placementhub.backend.service.RecruiterService;
 import jakarta.validation.Valid;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.media.Content;
+import io.swagger.v3.oas.annotations.media.ExampleObject;
+import io.swagger.v3.oas.annotations.media.Schema;
+import io.swagger.v3.oas.annotations.responses.ApiResponse;
+import com.placementhub.backend.config.ApiExamples;
+import com.placementhub.backend.exception.ErrorResponse;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -61,6 +67,16 @@ public class RecruiterController {
     }
 
     @Operation(summary = "Move an application to its next status", description = "Allowed: APPLIED->SHORTLISTED->INTERVIEW->OFFERED, or ->REJECTED. Send the version you displayed: 409 APPLICATION_MODIFIED / CONCURRENT_UPDATE if someone changed it first; 422 INVALID_STATUS_TRANSITION.")
+    @io.swagger.v3.oas.annotations.parameters.RequestBody(content = @Content(
+            examples = @ExampleObject(name = "Shortlist", value = ApiExamples.STATUS_UPDATE_REQUEST)))
+    @ApiResponse(responseCode = "200", description = "Status changed; the timeline has a new entry", content = @Content(mediaType = "application/json",
+            schema = @Schema(implementation = ApplicationResponse.class), examples = @ExampleObject(value = ApiExamples.APPLICATION_RESPONSE)))
+    @ApiResponse(responseCode = "404", description = "Not an application for one of your jobs", content = @Content(mediaType = "application/json",
+            schema = @Schema(implementation = ErrorResponse.class), examples = {@ExampleObject(name = "Not found", value = ApiExamples.NOT_FOUND)}))
+    @ApiResponse(responseCode = "409", description = "Someone changed it first", content = @Content(mediaType = "application/json",
+            schema = @Schema(implementation = ErrorResponse.class), examples = {@ExampleObject(name = "Stale version", value = ApiExamples.APPLICATION_MODIFIED)}))
+    @ApiResponse(responseCode = "422", description = "Move not allowed", content = @Content(mediaType = "application/json",
+            schema = @Schema(implementation = ErrorResponse.class), examples = {@ExampleObject(name = "Invalid transition", value = ApiExamples.INVALID_STATUS_TRANSITION)}))
     @PutMapping("/applications/{id}/status")
     public ResponseEntity<ApplicationResponse> updateApplicationStatus(@PathVariable Long id, @Valid @RequestBody ApplicationStatusUpdateRequest request) {
         return ResponseEntity.ok(recruiterService.updateApplicationStatus(id, request));

@@ -33,7 +33,7 @@ Every answer below points at real code or a real test in this repository, so it 
 > - request ids in every log line;
 > - fixed N+1 queries, with tests that count SQL statements.
 >
-> **Third, safe delivery.** Docker Compose runs the whole stack with one command. Every push runs about 160 backend and frontend tests, a container vulnerability scan, and only then deploys. That scan found real critical CVEs in my Spring Boot version, and I upgraded.
+> **Third, safe delivery.** Docker Compose runs the whole stack with one command. Every push runs about 180 tests, from unit tests up to Playwright tests that drive a real browser through the whole Docker stack, plus a container vulnerability scan, and only then deploys. The scan found real critical CVEs in my Spring Boot version, and the browser tests found a real bug in my Docker networking. I fixed both.
 >
 > I deliberately kept it a modular monolith. One database gives me transactions and locks for free, and the measured load doesn't need anything more.
 
@@ -262,6 +262,7 @@ This is what the pipeline does today:
 1. **Pull request.** `ci.yml` runs three jobs:
    - backend `./mvnw verify` against a MySQL 8.0.46 service container (unit, security, concurrency, migration and integration tests);
    - frontend lint, 59 component tests, `npm audit` (fails on critical) and the production build;
+   - 15 Playwright end-to-end tests in a real browser against the whole stack started with Docker Compose;
    - Docker build of both images plus a Trivy scan (fails on a fixable CRITICAL).
 2. **Merge to `main`.** Both Azure deploy workflows `need: ci`, so a red check means nothing is deployed and the live site keeps the previous version. The deploy job's `-DskipTests` is safe only because CI already ran every test.
 3. **On startup, Flyway applies pending migrations before the app takes traffic.** Migrations are forward-only and additive where possible. Before a release with a migration I take a backup (Azure point-in-time restore). Before adding `UNIQUE (student_id, job_id)` I first checked production for existing duplicates, because the migration would fail on them.
@@ -291,6 +292,7 @@ This is what the pipeline does today:
   - A concurrency test that never fails is worthless.
 - **Then under load:** the k6 `apply_burst` (200 students × 3 simultaneous clicks) and `slot_burst` (100 students, 20 seats) scenarios check the same invariants through HTTP, nginx and the connection pool, and assert zero 5xx responses.
 - **Frontend:** component tests check that a double-click sends one request, and that a 409 is shown sensibly.
+- **End to end:** a Playwright test double-clicks the real Apply button in Chromium against the full Docker stack. It asserts exactly one apply request left the browser, and that a direct duplicate API call gets `409 APPLICATION_ALREADY_EXISTS`.
 
 ### 14. How do you prevent unauthorized access to another student's application?
 
@@ -313,7 +315,8 @@ There are two layers, because the URL rule alone isn't enough:
 
 | Fact | Value | Source |
 |---|---|---|
-| Backend tests | 105 (unit, web security, MySQL integration, concurrency) | `./mvnw verify` in CI |
+| Backend tests | 106 (unit, web security, MySQL integration, concurrency, API docs) | `./mvnw verify` in CI |
+| End-to-end tests | 15 Playwright tests (the 7 journeys) against the full Docker stack | `e2e/run-e2e.ps1`, CI |
 | Frontend tests | 59 component tests, ~57% line coverage | `npm test` |
 | Duplicates without the unique key | 12 from 20 simultaneous clicks | concurrency mutation check |
 | Search throughput (one laptop) | ~2,200–2,400 req/s at p95 40–45 ms | `docs/performance.md` |
@@ -324,8 +327,18 @@ There are two layers, because the URL rule alone isn't enough:
 
 ## Honest limitations (say these before you are asked)
 
-- No automated browser E2E tests yet; component and integration tests only.
 - Rate limits are per instance (in memory).
 - JWT is in `localStorage`, with no refresh tokens or server-side revocation.
 - Load numbers come from one laptop, not from Azure.
 - No password reset; branch eligibility is free-text matching.
+
+## A bug story worth telling
+
+**"Tell me about a bug you found."** The first run of the Playwright tests failed at the login form, on a test stack using port 3200, although the same credentials worked through the API.
+- **Symptom:** the browser showed "Invalid email or password". The real response was `403 Invalid CORS request`.
+- **Cause:** nginx forwarded `X-Forwarded-Proto: http`. Tomcat's forwarded-header handling then reset the request port to 80, so Spring saw a page on `localhost:3200` calling `localhost:80`, in other words a cross-origin request. Port 3000 only worked because it was hard-coded in the CORS allow-list, which hid the bug.
+- **Fix:** nginx now forwards `X-Forwarded-Port` with the port the browser used, and the hard-coded port was removed (`frontend/nginx.conf`, `application-docker.yaml`).
+- **Lessons:**
+  - an allow-list entry can mask a real problem;
+  - tests should not run on the one configuration the developer always uses;
+  - the frontend's generic error message hid the real status code.

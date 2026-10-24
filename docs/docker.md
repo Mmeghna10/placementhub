@@ -37,6 +37,7 @@ Replace every `change-me…` value in `.env`:
 | **Delete everything including the database** | `docker compose down -v` ⚠️ |
 | Open a MySQL shell | `docker compose exec mysql mysql -u placementhub -p placementhub` |
 | Run the backend tests (outside Docker) | `cd backend; .\mvnw.cmd test` |
+| Run the browser end-to-end tests (own throwaway stack on port 3200) | `powershell -ExecutionPolicy Bypass -File e2e\run-e2e.ps1` |
 
 Once `docker compose ps` shows all three services as **healthy**:
 - App: **http://localhost:3000**

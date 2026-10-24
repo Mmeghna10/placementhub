@@ -6,11 +6,12 @@ spring:
   jpa:
     show-sql: false
 
-# Browsers reach the API through the nginx container on the same origin (/api), so no
-# cross-origin requests are expected; keep the allow-list to the local Vite dev servers.
+# Browsers reach the API through the nginx container on the same origin (/api), on any
+# FRONTEND_PORT (nginx forwards the port, see nginx.conf), so no cross-origin requests are
+# expected; the allow-list only covers a local Vite dev server.
 app:
   cors:
-    allowed-origins: http://localhost:5173,http://localhost:3000
+    allowed-origins: http://localhost:5173
 
 # Behind the nginx container: trust its X-Forwarded-For / -Proto headers (Tomcat only
 # accepts them from private network addresses), so rate limiting sees the real client IP

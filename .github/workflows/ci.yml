@@ -100,6 +100,73 @@ jobs:
         run: npm audit --omit=dev --audit-level=critical
       - run: npm run build
 
+  e2e:
+    name: End-to-end tests (Playwright)
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    env:
+      COMPOSE: docker compose -p placementhub-e2e -f compose.yaml -f e2e/compose.e2e.yaml --env-file e2e/.env.ci
+      E2E_BASE_URL: http://localhost:3200
+      E2E_ADMIN_EMAIL: admin@e2e.test
+    steps:
+      - uses: actions/checkout@v7
+
+      # One-off random secrets for this throwaway stack only, the same way run-e2e.ps1 does it.
+      - name: Write throwaway secrets for the test stack
+        run: |
+          ADMIN_PASSWORD="$(openssl rand -hex 16)"
+          echo "::add-mask::$ADMIN_PASSWORD"
+          echo "E2E_ADMIN_PASSWORD=$ADMIN_PASSWORD" >> "$GITHUB_ENV"
+          cat > e2e/.env.ci <<EOF
+          MYSQL_DATABASE=placementhub
+          MYSQL_USER=placementhub
+          MYSQL_PASSWORD=$(openssl rand -hex 16)
+          MYSQL_ROOT_PASSWORD=$(openssl rand -hex 16)
+          MYSQL_HOST_PORT=3309
+          APP_JWT_SECRET=$(openssl rand -hex 32)
+          ADMIN_EMAIL=$E2E_ADMIN_EMAIL
+          ADMIN_PASSWORD=$ADMIN_PASSWORD
+          FRONTEND_PORT=3200
+          EOF
+
+      - name: Start the full stack (MySQL, backend, frontend)
+        run: $COMPOSE up --build -d --wait
+
+      - name: Set up Node 22
+        uses: actions/setup-node@v7
+        with:
+          node-version: '22'
+          cache: npm
+          cache-dependency-path: e2e/package-lock.json
+
+      - name: Install Playwright and Chromium
+        working-directory: e2e
+        run: |
+          npm ci
+          npx playwright install --with-deps chromium
+
+      - name: Run end-to-end tests
+        working-directory: e2e
+        run: npx playwright test
+
+      - name: Backend logs when something failed
+        if: failure()
+        run: $COMPOSE logs backend --tail 200
+
+      - name: Keep the Playwright report when something failed
+        if: failure()
+        uses: actions/upload-artifact@v7
+        with:
+          name: playwright-report
+          path: |
+            e2e/playwright-report/
+            e2e/test-results/
+          retention-days: 7
+
+      - name: Stop the stack
+        if: always()
+        run: $COMPOSE down -v
+
   docker:
     name: Docker images build and scan
     runs-on: ubuntu-latest

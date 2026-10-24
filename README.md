@@ -202,7 +202,7 @@ sequenceDiagram
 
 ## API
 
-All endpoints are documented with **OpenAPI**: run the backend and open **`/swagger-ui.html`**.
+All endpoints are documented with **OpenAPI**: run the backend and open **`/swagger-ui.html`**. The key endpoints (register, login, apply, application details, status change, interview booking) show example requests, a success response, and each failure case with its JSON error.
 1. Call `POST /api/auth/login`.
 2. Copy the token.
 3. Click **Authorize**.
@@ -296,9 +296,10 @@ Prerequisites: JDK 17+, Node.js 20+, MySQL 8.
 
 | Suite | Count | What it covers | Command |
 |---|---|---|---|
-| Backend unit and web tests | part of 105 | Business rules and the status state machine, token bucket, JWT/security rules (401/403/404 for other users' data), admin bootstrap | `cd backend` then `./mvnw test` |
-| Backend MySQL integration tests | part of 105 | Flyway migrations, transaction rollback, **N+1 query counts**, search SQL, **concurrency scenarios A–D**, health, observability, OpenAPI | same, with `PLACEMENTHUB_IT_DB_*` set (below) |
+| Backend unit and web tests | part of 106 | Business rules and the status state machine, token bucket, JWT/security rules (401/403/404 for other users' data), admin bootstrap | `cd backend` then `./mvnw test` |
+| Backend MySQL integration tests | part of 106 | Flyway migrations, transaction rollback, **N+1 query counts**, search SQL, **concurrency scenarios A–D**, health, observability, OpenAPI | same, with `PLACEMENTHUB_IT_DB_*` set (below) |
 | Frontend component tests | 59 | Login/register, route protection, session expiry, search/filters/paging, apply (double-click, 409), booking, recruiter status changes with version conflicts, admin approval, loading/empty/error states | `cd frontend` then `npm test` |
+| **End-to-end (Playwright)** | 15 | The 7 journeys in a real browser against the full Docker stack: register and log in; see eligible jobs; apply (double-click sends one request); duplicate refused; recruiter reviews their own applicant; admin approves jobs; invalid and unauthorized requests refused (401/403/404/400, route guards) | `e2e\run-e2e.ps1` |
 | Load test (k6) | 4 scenarios | Throughput and latency, plus correctness under bursts | `load-tests\run-load-test.ps1` |
 
 The MySQL integration tests need an empty database whose name ends in `_it` or `_test`. They are skipped when it is not configured:
@@ -309,9 +310,9 @@ $env:PLACEMENTHUB_IT_DB_USER = "root"
 $env:PLACEMENTHUB_IT_DB_PASSWORD = "YOUR_MYSQL_PASSWORD"
 .\mvnw.cmd test
 ```
-In CI all 105 backend tests run against a MySQL 8.0.46 service container. Frontend tests mock the API, so they need no backend. Other commands are `npm run test:watch` and `npm run test:coverage`.
+In CI all 106 backend tests run against a MySQL 8.0.46 service container. Frontend tests mock the API, so they need no backend. Other commands are `npm run test:watch` and `npm run test:coverage`.
 
-**Not automated yet:** browser end-to-end tests. The end-to-end journeys were checked by hand on a fresh stack: register, log in, see eligible jobs, apply, duplicate refused, recruiter review, admin approval, unauthorized requests refused. They are not yet automated (see [Future improvements](#future-improvements)).
+**End-to-end tests:** `powershell -ExecutionPolicy Bypass -File e2e\run-e2e.ps1` starts a separate, throwaway copy of the stack (project `placementhub-e2e`, port 3200, random secrets, its own admin), runs the Playwright tests in Chromium and deletes the stack again. Add `-Headed` to watch the browser. Your normal stack and data are never touched. CI runs the same tests on every pull request.
 
 ---
 
@@ -338,8 +339,9 @@ Method, raw numbers and the connection-pool experiment are in **[docs/performanc
 flowchart LR
     PR[Pull request / push to main] --> CI
     subgraph CI["ci.yml"]
-        B["Backend: 105 tests<br/>on MySQL 8.0.46"]
+        B["Backend: 106 tests<br/>on MySQL 8.0.46"]
         F["Frontend: lint, 59 tests,<br/>npm audit, build"]
+        E["E2E: 15 Playwright tests<br/>on the full Docker stack"]
         D["Docker: build images,<br/>Trivy scan"]
     end
     CI -- all green --> DB["Deploy backend<br/>Azure App Service"]
@@ -356,12 +358,12 @@ flowchart LR
 - **Logging:** request ids in every line; JSON logs in containers; access log with durations.
 - **Safe release:**
   1. Open a pull request.
-  2. Wait for all three CI checks to pass.
+  2. Wait for all four CI checks to pass.
   3. Merge.
   4. Watch both deploy runs.
   5. Confirm readiness is `UP` and do a smoke test.
 - **Rollback:** re-run the deploy workflow of the last good commit, or revert the merge commit. A schema change is undone with a new migration, never by editing an old one.
-- **Recommended repository setting:** branch protection on `main` that requires the three CI checks.
+- **Repository setting (on):** a ruleset on `main` blocks force pushes and deletion, and requires a pull request plus the CI checks.
 - **Docker Compose** is for local development and the load-test stack. It is not a production orchestrator. Production runs on Azure's managed services.
 
 ---
@@ -374,12 +376,11 @@ flowchart LR
 - **Branch eligibility** is substring matching on free text ("MCA" does not match "Computer Applications").
 - **Interview times** have no time zone on the client; they assume users are in IST.
 - **Load numbers come from one laptop.** Azure has not been load-tested; that would need a staging copy.
-- **No automated browser E2E tests** (component and integration tests only). Frontend line coverage is about 57%.
+- **Frontend line coverage is about 57%** (component tests). The main journeys are also covered end to end.
 - **Cold starts** on the basic App Service plan.
 
 ## Future improvements
 
-- Playwright end-to-end tests for the main journeys, run in CI against the Docker Compose stack.
 - Refresh tokens in an `HttpOnly` cookie, now that the Docker setup serves the frontend and API from the same origin.
 - Password reset and email notifications (status changes, interview reminders) through a background job queue.
 - Branch and skills as shared reference data instead of free text, for exact eligibility matching.
