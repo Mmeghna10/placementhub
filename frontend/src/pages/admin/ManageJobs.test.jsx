@@ -23,6 +23,15 @@ describe('Admin jobs page', () => {
     expect(await screen.findByText('Nothing pending')).toBeInTheDocument();
   });
 
+  it('the dashboard link /admin/jobs/pending opens the pending queue, not all jobs', async () => {
+    getPendingJobs.mockResolvedValue({ data: [job(1, 'Java Developer', 'PENDING')] });
+    renderPage(<ManageJobs />, { route: '/admin/jobs/pending', path: '/admin/jobs/pending', user: ADMIN });
+
+    expect(await screen.findByRole('heading', { name: 'Pending Approvals' })).toBeInTheDocument();
+    expect(getPendingJobs).toHaveBeenCalled();
+    expect(getAllJobs).not.toHaveBeenCalled();
+  });
+
   it('rejects a job', async () => {
     getPendingJobs.mockResolvedValue({ data: [job(1, 'Java Developer', 'PENDING')] });
     approveJob.mockResolvedValue({ data: {} });

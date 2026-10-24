@@ -6,10 +6,10 @@ export default function AdminProfile() {
 
   return (
     <DashboardLayout>
-      <h1 className="font-display text-2xl font-semibold text-ink">Account</h1>
-      <div className="mt-1 w-12 border-t border-ink/30" />
+      <h1 className="font-display text-[1.75rem] font-semibold text-ink tracking-tight">Account</h1>
+      <div className="mt-2 h-1 w-10 rounded-full bg-brass/70" />
 
-      <div className="mt-8 max-w-md bg-white border border-ink/10 rounded-lg p-6">
+      <div className="mt-8 max-w-md bg-white border border-ink/[0.08] rounded-xl shadow-card p-6">
         <dl className="space-y-5">
           <div>
             <dt className="text-xs font-medium text-slate uppercase tracking-wide">Email</dt>

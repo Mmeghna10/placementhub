@@ -64,13 +64,13 @@ export default function StudentProfile() {
     <DashboardLayout>
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="font-display text-2xl font-semibold text-ink">My Profile</h1>
-          <div className="mt-1 w-12 border-t border-ink/30" />
+          <h1 className="font-display text-[1.75rem] font-semibold text-ink tracking-tight">My Profile</h1>
+          <div className="mt-2 h-1 w-10 rounded-full bg-brass/70" />
         </div>
         {!editing && (
           <button
             onClick={() => setEditing(true)}
-            className="flex items-center gap-1.5 px-4 py-2 bg-ink text-paper rounded-md text-sm font-medium hover:bg-ink/90 transition"
+            className="flex items-center gap-1.5 px-4 py-2 bg-ink text-paper rounded-lg text-sm font-medium hover:bg-ink/90 transition"
           >
             <Pencil size={15} />
             Edit
@@ -79,7 +79,7 @@ export default function StudentProfile() {
       </div>
 
       {!editing ? (
-        <div className="mt-8 max-w-2xl bg-white border border-ink/10 rounded-lg p-6">
+        <div className="mt-8 max-w-2xl bg-white border border-ink/[0.08] rounded-xl shadow-card p-6">
           <dl className="grid grid-cols-1 sm:grid-cols-2 gap-x-6 gap-y-5">
             <div>
               <dt className="text-xs font-medium text-slate uppercase tracking-wide">Email</dt>
@@ -94,7 +94,7 @@ export default function StudentProfile() {
           </dl>
         </div>
       ) : (
-        <form onSubmit={handleSubmit} className="mt-8 max-w-2xl bg-white border border-ink/10 rounded-lg p-6 space-y-5">
+        <form onSubmit={handleSubmit} className="mt-8 max-w-2xl bg-white border border-ink/[0.08] rounded-xl shadow-card p-6 space-y-5">
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
             {fields.map((f) => (
               <div key={f.name} className={f.name === 'skills' || f.name.includes('Url') ? 'sm:col-span-2' : ''}>
@@ -107,7 +107,7 @@ export default function StudentProfile() {
                   name={f.name}
                   value={form[f.name] ?? ''}
                   onChange={handleChange}
-                  className="w-full px-3.5 py-2.5 bg-paper border border-ink/15 rounded-md text-ink focus:outline-none focus:ring-2 focus:ring-teal/40 focus:border-teal transition"
+                  className="w-full px-3.5 py-2.5 bg-paper border border-ink/15 rounded-lg text-ink focus:outline-none focus:ring-2 focus:ring-teal/40 focus:border-teal transition"
                 />
               </div>
             ))}
@@ -118,14 +118,14 @@ export default function StudentProfile() {
             <button
               type="submit"
               disabled={saving}
-              className="px-5 py-2.5 bg-ink text-paper rounded-md font-medium hover:bg-ink/90 transition disabled:opacity-50"
+              className="px-5 py-2.5 bg-ink text-paper rounded-lg font-medium hover:bg-ink/90 transition disabled:opacity-50"
             >
               {saving ? 'Saving…' : 'Save Changes'}
             </button>
             <button
               type="button"
               onClick={handleCancel}
-              className="px-5 py-2.5 border border-ink/15 text-ink rounded-md font-medium hover:bg-paper transition"
+              className="px-5 py-2.5 border border-ink/15 text-ink rounded-lg font-medium hover:bg-paper transition"
             >
               Cancel
             </button>

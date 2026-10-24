@@ -1,19 +1,25 @@
 const statusStyles = {
-  APPLIED: 'bg-teal/10 text-teal',
-  SHORTLISTED: 'bg-brass/15 text-brass',
-  INTERVIEW: 'bg-brass/15 text-brass',
-  OFFERED: 'bg-green-100 text-green-700',
-  REJECTED: 'bg-brick/10 text-brick',
-  PENDING: 'bg-slate/10 text-slate',
-  APPROVED: 'bg-teal/10 text-teal',
-  CLOSED: 'bg-ink/10 text-ink',
+  APPLIED: { pill: 'bg-teal/10 text-teal ring-teal/20', dot: 'bg-teal' },
+  SHORTLISTED: { pill: 'bg-brass/15 text-[#7d6238] ring-brass/30', dot: 'bg-brass' },
+  INTERVIEW: { pill: 'bg-indigo-50 text-indigo-700 ring-indigo-200', dot: 'bg-indigo-500' },
+  OFFERED: { pill: 'bg-emerald-50 text-emerald-700 ring-emerald-200', dot: 'bg-emerald-500' },
+  REJECTED: { pill: 'bg-brick/10 text-brick ring-brick/20', dot: 'bg-brick' },
+  PENDING: { pill: 'bg-amber-50 text-amber-700 ring-amber-200', dot: 'bg-amber-500' },
+  APPROVED: { pill: 'bg-emerald-50 text-emerald-700 ring-emerald-200', dot: 'bg-emerald-500' },
+  CLOSED: { pill: 'bg-ink/5 text-slate ring-ink/10', dot: 'bg-slate' },
 };
 
+const fallback = { pill: 'bg-slate/10 text-slate ring-slate/20', dot: 'bg-slate' };
+
 export default function StatusBadge({ status }) {
-  const style = statusStyles[status] || 'bg-slate/10 text-slate';
+  const style = statusStyles[status] || fallback;
   return (
-    <span className={`inline-block px-2.5 py-1 rounded-full text-xs font-medium font-mono uppercase tracking-wide ${style}`}>
-      {status}
+    <span
+      className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium ring-1 ring-inset whitespace-nowrap ${style.pill}`}
+    >
+      <span className={`h-1.5 w-1.5 rounded-full ${style.dot}`} aria-hidden="true" />
+      {/* The text stays the API value (e.g. SHORTLISTED); CSS shows it as "Shortlisted". */}
+      <span className="lowercase first-letter:uppercase">{status}</span>
     </span>
   );
 }

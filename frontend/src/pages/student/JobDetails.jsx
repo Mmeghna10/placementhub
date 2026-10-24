@@ -1,6 +1,9 @@
 import { useEffect, useRef, useState } from 'react';
 import { Link, useParams, useNavigate } from 'react-router-dom';
 import DashboardLayout from '../../components/DashboardLayout';
+import CompanyAvatar from '../../components/CompanyAvatar';
+import JobMeta from '../../components/JobMeta';
+import { ArrowLeft } from 'lucide-react';
 import LoadingState from '../../components/LoadingState';
 import { getJob, getMyApplications, applyToJob } from '../../api/studentApi';
 
@@ -54,61 +57,59 @@ export default function JobDetails() {
 
   return (
     <DashboardLayout>
-      <button onClick={() => navigate(-1)} className="text-sm text-teal hover:underline mb-6">
-        ← Back
+      <button
+        onClick={() => navigate(-1)}
+        className="inline-flex items-center gap-1.5 text-sm font-medium text-slate hover:text-teal mb-6 transition"
+      >
+        <ArrowLeft size={15} /> Back
       </button>
 
-      <div className="bg-white border border-ink/10 rounded-lg p-8 max-w-2xl">
-        <p className="text-xs font-mono uppercase tracking-wide text-brass">{job.companyName}</p>
-        <h1 className="font-display text-2xl font-semibold text-ink mt-1">{job.title}</h1>
+      <div className="bg-white border border-ink/[0.08] rounded-2xl shadow-card p-6 sm:p-8 max-w-3xl">
+        <div className="flex items-start gap-4">
+          <CompanyAvatar name={job.companyName} size="lg" />
+          <div className="min-w-0">
+            <p className="text-sm font-medium text-teal">{job.companyName}</p>
+            <h1 className="font-display text-[1.75rem] font-semibold text-ink tracking-tight leading-tight mt-0.5">{job.title}</h1>
+          </div>
+        </div>
 
-        <div className="flex flex-wrap gap-3 mt-4 text-sm text-slate">
-          <span>{job.location}</span>
-          <span>·</span>
-          <span>{job.jobType?.replace('_', ' ')}</span>
-          {job.salaryMin && (
-            <>
-              <span>·</span>
-              <span>₹{job.salaryMin.toLocaleString()}–{job.salaryMax?.toLocaleString()}</span>
-            </>
-          )}
-          {job.applicationDeadline && (
-            <>
-              <span>·</span>
-              <span>Apply by {job.applicationDeadline}</span>
-            </>
-          )}
+        <div className="mt-5">
+          <JobMeta job={job} />
         </div>
 
         <div className="mt-6 pt-6 border-t border-ink/10">
-          <h2 className="text-xs font-medium text-slate uppercase tracking-wide mb-2">Description</h2>
+          <h2 className="text-xs font-semibold text-slate uppercase tracking-wider mb-2.5">Description</h2>
           <p className="text-sm text-ink leading-relaxed whitespace-pre-line">{job.description}</p>
         </div>
 
         {job.requiredSkills && (
           <div className="mt-6">
-            <h2 className="text-xs font-medium text-slate uppercase tracking-wide mb-2">Required Skills</h2>
-            <p className="text-sm text-ink">{job.requiredSkills}</p>
+            <h2 className="text-xs font-semibold text-slate uppercase tracking-wider mb-2.5">Required Skills</h2>
+            <div className="flex flex-wrap gap-2">
+              {job.requiredSkills.split(',').map((skill) => skill.trim()).filter(Boolean).map((skill) => (
+                <span key={skill} className="px-2.5 py-1 rounded-full bg-teal/10 text-teal text-xs font-medium">{skill}</span>
+              ))}
+            </div>
           </div>
         )}
 
         {job.eligibleBranches && (
           <div className="mt-6">
-            <h2 className="text-xs font-medium text-slate uppercase tracking-wide mb-2">Eligible Branches</h2>
+            <h2 className="text-xs font-semibold text-slate uppercase tracking-wider mb-2.5">Eligible Branches</h2>
             <p className="text-sm text-ink">{job.eligibleBranches}</p>
           </div>
         )}
 
         {job.minCgpa && (
           <div className="mt-6">
-            <h2 className="text-xs font-medium text-slate uppercase tracking-wide mb-2">Minimum CGPA</h2>
+            <h2 className="text-xs font-semibold text-slate uppercase tracking-wider mb-2.5">Minimum CGPA</h2>
             <p className="text-sm text-ink">{job.minCgpa}</p>
           </div>
         )}
 
         <div className="mt-8 pt-6 border-t border-ink/10">
           {application ? (
-            <p className="text-sm text-teal font-medium">
+            <p className="text-sm text-teal font-medium bg-teal/5 border border-teal/15 rounded-lg px-4 py-3">
               You have applied to this job.{' '}
               {application.id && (
                 <Link to={`/student/applications/${application.id}`} className="underline">
@@ -122,7 +123,7 @@ export default function JobDetails() {
             <button
               onClick={handleApply}
               disabled={applying}
-              className="px-6 py-2.5 bg-ink text-paper rounded-md font-medium hover:bg-ink/90 transition disabled:opacity-50"
+              className="px-7 py-3 bg-ink text-paper rounded-lg font-semibold hover:bg-ink/90 transition disabled:opacity-50 shadow-sm"
             >
               {applying ? 'Applying…' : 'Apply Now'}
             </button>

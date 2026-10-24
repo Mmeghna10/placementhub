@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { useSearchParams } from 'react-router-dom';
+import { useLocation, useSearchParams } from 'react-router-dom';
 import DashboardLayout from '../../components/DashboardLayout';
 import LoadingState from '../../components/LoadingState';
 import EmptyState from '../../components/EmptyState';
@@ -11,7 +11,9 @@ const EMPTY_PAGE = { page: 0, totalPages: 0, totalElements: 0 };
 
 export default function ManageJobs() {
   const [searchParams] = useSearchParams();
-  const pendingOnly = searchParams.get('pending') === 'true';
+  const { pathname } = useLocation();
+  // Both /admin/jobs/pending (the dashboard link) and /admin/jobs?pending=true show the queue.
+  const pendingOnly = pathname.endsWith('/pending') || searchParams.get('pending') === 'true';
 
   const [jobs, setJobs] = useState([]);
   const [pageInfo, setPageInfo] = useState(EMPTY_PAGE);
@@ -58,10 +60,10 @@ export default function ManageJobs() {
 
   return (
     <DashboardLayout>
-      <h1 className="font-display text-2xl font-semibold text-ink">
+      <h1 className="font-display text-[1.75rem] font-semibold text-ink tracking-tight">
         {pendingOnly ? 'Pending Approvals' : 'All Jobs'}
       </h1>
-      <div className="mt-1 w-12 border-t border-ink/30" />
+      <div className="mt-2 h-1 w-10 rounded-full bg-brass/70" />
 
       <div className="mt-8">
         {error && <p className="text-sm text-brick font-medium mb-4">{error}</p>}
@@ -70,9 +72,9 @@ export default function ManageJobs() {
         ) : jobs.length === 0 ? (
           <EmptyState title={pendingOnly ? 'Nothing pending' : 'No jobs yet'} />
         ) : (
-          <div className="bg-white border border-ink/10 rounded-lg divide-y divide-ink/10">
+          <div className="bg-white border border-ink/[0.08] rounded-xl shadow-card divide-y divide-ink/10">
             {jobs.map((job) => (
-              <div key={job.id} className="flex items-center justify-between px-5 py-4">
+              <div key={job.id} data-testid="job-row" className="flex items-center justify-between px-5 py-4">
                 <div>
                   <p className="text-sm font-medium text-ink">{job.title}</p>
                   <p className="text-xs text-slate mt-0.5">{job.companyName} · {job.location}</p>
@@ -85,14 +87,14 @@ export default function ManageJobs() {
                       <button
                         onClick={() => handleDecision(job.id, 'APPROVED')}
                         disabled={updatingId === job.id}
-                        className="px-3 py-1.5 bg-teal text-paper rounded-md text-xs font-medium hover:bg-teal/90 transition disabled:opacity-50"
+                        className="px-3 py-1.5 bg-teal text-paper rounded-lg text-xs font-medium hover:bg-teal/90 transition disabled:opacity-50"
                       >
                         Approve
                       </button>
                       <button
                         onClick={() => handleDecision(job.id, 'REJECTED')}
                         disabled={updatingId === job.id}
-                        className="px-3 py-1.5 bg-brick text-paper rounded-md text-xs font-medium hover:bg-brick/90 transition disabled:opacity-50"
+                        className="px-3 py-1.5 bg-brick text-paper rounded-lg text-xs font-medium hover:bg-brick/90 transition disabled:opacity-50"
                       >
                         Reject
                       </button>

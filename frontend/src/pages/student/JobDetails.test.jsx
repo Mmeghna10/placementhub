@@ -25,7 +25,7 @@ describe('Job details page', () => {
     open();
     expect(await screen.findByRole('heading', { name: 'Java Developer' })).toBeInTheDocument();
     expect(screen.getByText('CSE, IT')).toBeInTheDocument();
-    expect(screen.getByText('Apply by 2026-12-31')).toBeInTheDocument();
+    expect(screen.getByText('Apply by 31 Dec 2026')).toBeInTheDocument();
     expect(getJob).toHaveBeenCalledWith('7');
   });
 

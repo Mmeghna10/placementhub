@@ -11,6 +11,9 @@ export default defineConfig({
     include: ['src/**/*.test.{js,jsx}'],
     // Styles don't affect behaviour under test; skipping them keeps tests fast.
     css: false,
+    // Typing tests (user-event, one keystroke at a time) need ~1 s normally but can pass 5 s
+    // on a busy machine or CI runner; a timed-out test then keeps typing into the next one.
+    testTimeout: 15_000,
     coverage: {
       provider: 'v8',
       include: ['src/**/*.{js,jsx}'],

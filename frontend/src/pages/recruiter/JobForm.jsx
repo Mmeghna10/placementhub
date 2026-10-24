@@ -61,22 +61,22 @@ export default function JobForm() {
 
   return (
     <DashboardLayout>
-      <h1 className="font-display text-2xl font-semibold text-ink">
+      <h1 className="font-display text-[1.75rem] font-semibold text-ink tracking-tight">
         {isEdit ? 'Edit Job' : 'Post a New Job'}
       </h1>
-      <div className="mt-1 w-12 border-t border-ink/30" />
+      <div className="mt-2 h-1 w-10 rounded-full bg-brass/70" />
       {isEdit && (
         <p className="mt-4 text-sm text-slate">
           Saving changes sends this job back to the placement cell for approval.
         </p>
       )}
 
-      <form onSubmit={handleSubmit} className="mt-8 max-w-2xl bg-white border border-ink/10 rounded-lg p-6 space-y-5">
+      <form onSubmit={handleSubmit} className="mt-8 max-w-2xl bg-white border border-ink/[0.08] rounded-xl shadow-card p-6 space-y-5">
         <div>
           <label className="block text-xs font-medium text-slate uppercase tracking-wide mb-1.5">Title</label>
           <input
             type="text" name="title" required value={form.title} onChange={handleChange}
-            className="w-full px-3.5 py-2.5 bg-paper border border-ink/15 rounded-md text-ink focus:outline-none focus:ring-2 focus:ring-teal/40 focus:border-teal transition"
+            className="w-full px-3.5 py-2.5 bg-paper border border-ink/15 rounded-lg text-ink focus:outline-none focus:ring-2 focus:ring-teal/40 focus:border-teal transition"
           />
         </div>
 
@@ -84,7 +84,7 @@ export default function JobForm() {
           <label className="block text-xs font-medium text-slate uppercase tracking-wide mb-1.5">Description</label>
           <textarea
             name="description" rows={4} value={form.description} onChange={handleChange}
-            className="w-full px-3.5 py-2.5 bg-paper border border-ink/15 rounded-md text-ink focus:outline-none focus:ring-2 focus:ring-teal/40 focus:border-teal transition"
+            className="w-full px-3.5 py-2.5 bg-paper border border-ink/15 rounded-lg text-ink focus:outline-none focus:ring-2 focus:ring-teal/40 focus:border-teal transition"
           />
         </div>
 
@@ -93,7 +93,7 @@ export default function JobForm() {
             <label className="block text-xs font-medium text-slate uppercase tracking-wide mb-1.5">Job Type</label>
             <select
               name="jobType" value={form.jobType} onChange={handleChange}
-              className="w-full px-3.5 py-2.5 bg-paper border border-ink/15 rounded-md text-ink focus:outline-none focus:ring-2 focus:ring-teal/40 focus:border-teal transition"
+              className="w-full px-3.5 py-2.5 bg-paper border border-ink/15 rounded-lg text-ink focus:outline-none focus:ring-2 focus:ring-teal/40 focus:border-teal transition"
             >
               <option value="FULL_TIME">Full Time</option>
               <option value="INTERNSHIP">Internship</option>
@@ -103,7 +103,7 @@ export default function JobForm() {
             <label className="block text-xs font-medium text-slate uppercase tracking-wide mb-1.5">Location</label>
             <input
               type="text" name="location" value={form.location} onChange={handleChange}
-              className="w-full px-3.5 py-2.5 bg-paper border border-ink/15 rounded-md text-ink focus:outline-none focus:ring-2 focus:ring-teal/40 focus:border-teal transition"
+              className="w-full px-3.5 py-2.5 bg-paper border border-ink/15 rounded-lg text-ink focus:outline-none focus:ring-2 focus:ring-teal/40 focus:border-teal transition"
             />
           </div>
         </div>
@@ -113,14 +113,14 @@ export default function JobForm() {
             <label className="block text-xs font-medium text-slate uppercase tracking-wide mb-1.5">Min Salary</label>
             <input
               type="number" name="salaryMin" value={form.salaryMin} onChange={handleChange}
-              className="w-full px-3.5 py-2.5 bg-paper border border-ink/15 rounded-md text-ink focus:outline-none focus:ring-2 focus:ring-teal/40 focus:border-teal transition"
+              className="w-full px-3.5 py-2.5 bg-paper border border-ink/15 rounded-lg text-ink focus:outline-none focus:ring-2 focus:ring-teal/40 focus:border-teal transition"
             />
           </div>
           <div>
             <label className="block text-xs font-medium text-slate uppercase tracking-wide mb-1.5">Max Salary</label>
             <input
               type="number" name="salaryMax" value={form.salaryMax} onChange={handleChange}
-              className="w-full px-3.5 py-2.5 bg-paper border border-ink/15 rounded-md text-ink focus:outline-none focus:ring-2 focus:ring-teal/40 focus:border-teal transition"
+              className="w-full px-3.5 py-2.5 bg-paper border border-ink/15 rounded-lg text-ink focus:outline-none focus:ring-2 focus:ring-teal/40 focus:border-teal transition"
             />
           </div>
         </div>
@@ -130,7 +130,7 @@ export default function JobForm() {
           <input
             type="text" name="requiredSkills" value={form.requiredSkills} onChange={handleChange}
             placeholder="Java, Spring Boot, React"
-            className="w-full px-3.5 py-2.5 bg-paper border border-ink/15 rounded-md text-ink focus:outline-none focus:ring-2 focus:ring-teal/40 focus:border-teal transition"
+            className="w-full px-3.5 py-2.5 bg-paper border border-ink/15 rounded-lg text-ink focus:outline-none focus:ring-2 focus:ring-teal/40 focus:border-teal transition"
           />
         </div>
 
@@ -139,14 +139,14 @@ export default function JobForm() {
             <label className="block text-xs font-medium text-slate uppercase tracking-wide mb-1.5">Minimum CGPA</label>
             <input
               type="number" step="0.1" name="minCgpa" value={form.minCgpa} onChange={handleChange}
-              className="w-full px-3.5 py-2.5 bg-paper border border-ink/15 rounded-md text-ink focus:outline-none focus:ring-2 focus:ring-teal/40 focus:border-teal transition"
+              className="w-full px-3.5 py-2.5 bg-paper border border-ink/15 rounded-lg text-ink focus:outline-none focus:ring-2 focus:ring-teal/40 focus:border-teal transition"
             />
           </div>
           <div>
             <label className="block text-xs font-medium text-slate uppercase tracking-wide mb-1.5">Application Deadline</label>
             <input
               type="date" name="applicationDeadline" value={form.applicationDeadline} onChange={handleChange}
-              className="w-full px-3.5 py-2.5 bg-paper border border-ink/15 rounded-md text-ink focus:outline-none focus:ring-2 focus:ring-teal/40 focus:border-teal transition"
+              className="w-full px-3.5 py-2.5 bg-paper border border-ink/15 rounded-lg text-ink focus:outline-none focus:ring-2 focus:ring-teal/40 focus:border-teal transition"
             />
           </div>
         </div>
@@ -156,7 +156,7 @@ export default function JobForm() {
           <input
             type="text" name="eligibleBranches" value={form.eligibleBranches} onChange={handleChange}
             placeholder="Computer Science, Information Technology"
-            className="w-full px-3.5 py-2.5 bg-paper border border-ink/15 rounded-md text-ink focus:outline-none focus:ring-2 focus:ring-teal/40 focus:border-teal transition"
+            className="w-full px-3.5 py-2.5 bg-paper border border-ink/15 rounded-lg text-ink focus:outline-none focus:ring-2 focus:ring-teal/40 focus:border-teal transition"
           />
         </div>
 
@@ -165,7 +165,7 @@ export default function JobForm() {
         <button
           type="submit"
           disabled={saving}
-          className="px-5 py-2.5 bg-ink text-paper rounded-md font-medium hover:bg-ink/90 transition disabled:opacity-50"
+          className="px-5 py-2.5 bg-ink text-paper rounded-lg font-medium hover:bg-ink/90 transition disabled:opacity-50"
         >
           {saving ? 'Saving…' : isEdit ? 'Save Changes' : 'Post Job'}
         </button>
