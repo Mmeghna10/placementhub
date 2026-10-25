@@ -121,7 +121,7 @@ Use the README's diagrams as the visual. A suggested order, about 40 seconds per
 
 **Known trade-offs:**
 - **No server-side revocation and no refresh token.** Logout deletes the token in the browser.
-- **The token lives in `localStorage`, readable by an XSS attack.** It's mitigated by React escaping and security headers.
+- **The token lives in `localStorage`, readable by an XSS attack.** It's mitigated by React escaping and a Content-Security-Policy that allows scripts only from the app's own origin, so injected or third-party scripts can't run. An E2E test checks the policy is sent and that no page violates it.
 - **Planned improvement:** short access tokens plus an `HttpOnly` refresh cookie. That is now practical because the Docker/nginx setup is same-origin.
 
 ### 3. How do you prevent duplicate applications?
@@ -261,8 +261,8 @@ I would **not** use Redis for distributed locks here. Every invariant lives in o
 This is what the pipeline does today:
 1. **Pull request.** `ci.yml` runs three jobs:
    - backend `./mvnw verify` against a MySQL 8.0.46 service container (unit, security, concurrency, migration and integration tests);
-   - frontend lint, 59 component tests, `npm audit` (fails on critical) and the production build;
-   - 15 Playwright end-to-end tests in a real browser against the whole stack started with Docker Compose;
+   - frontend lint, 64 component tests, `npm audit` (fails on critical) and the production build;
+   - 17 Playwright end-to-end tests in a real browser against the whole stack started with Docker Compose;
    - Docker build of both images plus a Trivy scan (fails on a fixable CRITICAL).
 2. **Merge to `main`.** Both Azure deploy workflows `need: ci`, so a red check means nothing is deployed and the live site keeps the previous version. The deploy job's `-DskipTests` is safe only because CI already ran every test.
 3. **On startup, Flyway applies pending migrations before the app takes traffic.** Migrations are forward-only and additive where possible. Before a release with a migration I take a backup (Azure point-in-time restore). Before adding `UNIQUE (student_id, job_id)` I first checked production for existing duplicates, because the migration would fail on them.
@@ -316,8 +316,8 @@ There are two layers, because the URL rule alone isn't enough:
 | Fact | Value | Source |
 |---|---|---|
 | Backend tests | 106 (unit, web security, MySQL integration, concurrency, API docs) | `./mvnw verify` in CI |
-| End-to-end tests | 15 Playwright tests (the 7 journeys) against the full Docker stack | `e2e/run-e2e.ps1`, CI |
-| Frontend tests | 59 component tests, ~57% line coverage | `npm test` |
+| End-to-end tests | 17 Playwright tests (the 7 journeys + security headers) against the full Docker stack | `e2e/run-e2e.ps1`, CI |
+| Frontend tests | 64 component tests, ~59% line coverage | `npm test` |
 | Duplicates without the unique key | 12 from 20 simultaneous clicks | concurrency mutation check |
 | Search throughput (one laptop) | ~2,200–2,400 req/s at p95 40–45 ms | `docs/performance.md` |
 | Apply burst | 200 students × 3 clicks → exactly 200 applications, 0 errors | k6 |
