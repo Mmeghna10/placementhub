@@ -18,7 +18,7 @@ public class ApplicationResponse {
     /** Send back with a status update; a mismatch means someone else changed it first. */
     private Long version;
 
-    /** Statuses this application may move to next (empty once OFFERED or REJECTED). */
+    /** Statuses the recruiter may move this application to (empty from OFFERED onwards: the student decides). */
     private List<String> allowedNextStatuses;
 
     /** Who applied. Only filled in for the recruiter who owns the job. */
@@ -26,4 +26,7 @@ public class ApplicationResponse {
 
     /** The booked interview slot, if any. */
     private InterviewBookingSummary interview;
+
+    /** While OFFERED: when the offer lapses if the student has not accepted or declined. */
+    private LocalDateTime offerExpiresAt;
 }

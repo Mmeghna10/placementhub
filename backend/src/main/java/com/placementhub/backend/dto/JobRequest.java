@@ -40,6 +40,16 @@ public class JobRequest {
 
     private LocalDate applicationDeadline;
 
+    /** How many people the job hires (default 1). Offers can never exceed it. */
+    @Min(value = 1, message = "Openings must be at least 1")
+    @Max(value = 500, message = "Openings must be at most 500")
+    private Integer openings;
+
+    /** Hours a student has to accept or decline an offer (default 72). */
+    @Min(value = 1, message = "The offer deadline must be at least 1 hour")
+    @Max(value = 720, message = "The offer deadline must be at most 720 hours (30 days)")
+    private Integer offerDeadlineHours;
+
     @JsonIgnore
     @AssertTrue(message = "Minimum salary cannot be greater than maximum salary")
     public boolean isSalaryRangeValid() {

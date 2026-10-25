@@ -27,6 +27,12 @@ import org.springframework.test.context.DynamicPropertySource;
         // Concurrency tests run many transactions at the same moment; with the normal pool
         // of 10 they would queue for connections and never really race.
         "spring.datasource.hikari.maximum-pool-size=40",
+        // Open all 40 up front: the pool otherwise grows one connection at a time, and on a
+        // slow machine 20 threads released at once time out waiting for it to grow.
+        "spring.datasource.hikari.minimum-idle=40",
+        "spring.datasource.hikari.connection-timeout=30000",
+        // Tests expire offers explicitly; the background job must not race them.
+        "app.offers.expiry-job.enabled=false",
         "logging.level.org.hibernate.engine.internal.StatisticalLoggingSessionEventListener=WARN"
 })
 @EnabledIfEnvironmentVariable(named = MySqlIntegrationTest.URL_ENV, matches = ".+")

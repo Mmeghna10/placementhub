@@ -15,6 +15,8 @@ import com.placementhub.backend.exception.NotFoundException;
 import com.placementhub.backend.mapper.ApplicationMapper;
 import com.placementhub.backend.repository.InterviewBookingRepository;
 import com.placementhub.backend.repository.InterviewSlotRepository;
+import com.placementhub.backend.repository.StudentRepository;
+import com.placementhub.backend.security.SecurityUtils;
 import lombok.RequiredArgsConstructor;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.stereotype.Service;
@@ -45,6 +47,7 @@ public class InterviewSlotService {
     private final InterviewBookingRepository bookingRepository;
     private final RecruiterService recruiterService;
     private final StudentService studentService;
+    private final StudentRepository studentRepository;
     private final ApplicationMapper applicationMapper;
     private final Clock clock;
 
@@ -139,6 +142,9 @@ public class InterviewSlotService {
      */
     @Transactional
     public ApplicationResponse bookSlot(Long applicationId, Long slotId) {
+        // First statement on purpose (see lockByUserEmail): serialises this student's
+        // bookings so the "already booked" and overlap checks below cannot be raced.
+        studentRepository.lockByUserEmail(SecurityUtils.getCurrentUserEmail());
         Application application = studentService.requireOwnApplication(applicationId);
         requireInterviewStage(application);
 
@@ -151,6 +157,7 @@ public class InterviewSlotService {
         if (bookingRepository.existsByApplicationId(application.getId())) {
             throw alreadyBooked();
         }
+        rejectClashWithOtherInterviews(application, slot);
 
         if (slotRepository.reserveSeat(slot.getId()) == 0) {
             throw new ConflictException("SLOT_FULL", "This interview slot is already full. Please pick another one.");
@@ -196,6 +203,22 @@ public class InterviewSlotService {
         if (application.getStatus() != ApplicationStatus.INTERVIEW) {
             throw new BusinessRuleException("NOT_IN_INTERVIEW_STAGE",
                     "Interview slots open once the recruiter moves your application to INTERVIEW");
+        }
+    }
+
+    /** A student cannot be in two interviews at once, even with different companies. */
+    private void rejectClashWithOtherInterviews(Application application, InterviewSlot slot) {
+        LocalDateTime start = slot.getStartsAt();
+        LocalDateTime end = start.plusMinutes(slot.getDurationMinutes());
+        for (InterviewBooking other : bookingRepository.findByApplicationStudentId(application.getStudent().getId())) {
+            InterviewSlot booked = other.getSlot();
+            LocalDateTime bookedEnd = booked.getStartsAt().plusMinutes(booked.getDurationMinutes());
+            if (start.isBefore(bookedEnd) && booked.getStartsAt().isBefore(end)) {
+                throw new ConflictException("INTERVIEW_CLASH",
+                        "This overlaps your " + booked.getJob().getCompany().getName() + " interview at "
+                                + booked.getStartsAt().toLocalTime() + " on " + booked.getStartsAt().toLocalDate()
+                                + ". Please pick another slot.");
+            }
         }
     }
 

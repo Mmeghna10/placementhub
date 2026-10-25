@@ -6,7 +6,8 @@ import StatusBadge from '../../components/StatusBadge';
 import StatCard from '../../components/StatCard';
 import CompanyAvatar from '../../components/CompanyAvatar';
 import EmptyState from '../../components/EmptyState';
-import { Briefcase, CalendarDays, ChevronRight, FileText, Search, TrendingUp, Trophy, UserRoundPen } from 'lucide-react';
+import { Briefcase, CalendarDays, ChevronRight, FileText, Gift, Search, TrendingUp, Trophy, UserRoundPen } from 'lucide-react';
+import { formatDateTime } from '../../utils/jobFormat';
 import { getStudentProfile, getMyApplications } from '../../api/studentApi';
 
 export default function StudentDashboard() {
@@ -28,9 +29,11 @@ export default function StudentDashboard() {
   const recent = applications.slice(0, 5);
 
   const firstName = profile?.fullName ? profile.fullName.split(' ')[0] : '';
-  const inProgress = applications.filter((a) => ['SHORTLISTED', 'INTERVIEW', 'OFFERED'].includes(a.status)).length;
+  const inProgress = applications.filter((a) => ['SHORTLISTED', 'INTERVIEW', 'OFFERED', 'ACCEPTED'].includes(a.status)).length;
   const interviews = applications.filter((a) => a.status === 'INTERVIEW').length;
-  const offers = applications.filter((a) => a.status === 'OFFERED').length;
+  const offers = applications.filter((a) => ['OFFERED', 'ACCEPTED'].includes(a.status)).length;
+  const pendingOffer = applications.find((a) => a.status === 'OFFERED');
+  const placedWith = applications.find((a) => a.status === 'ACCEPTED');
 
   return (
     <DashboardLayout>
@@ -49,6 +52,29 @@ export default function StudentDashboard() {
           <Search size={16} /> Browse jobs
         </Link>
       </div>
+
+      {pendingOffer && (
+        <Link
+          to={`/student/applications/${pendingOffer.id}`}
+          className="mt-6 group flex flex-col sm:flex-row sm:items-center justify-between gap-3 rounded-xl border border-emerald-200 bg-gradient-to-r from-emerald-50 to-white px-5 py-4 hover:border-emerald-300 transition"
+        >
+          <div className="flex items-center gap-3">
+            <Gift size={20} className="text-emerald-600 shrink-0" />
+            <p className="text-sm text-ink">
+              <span className="font-semibold">{pendingOffer.companyName}</span> offered you {pendingOffer.jobTitle}.
+              {pendingOffer.offerExpiresAt && <> Decide by {formatDateTime(pendingOffer.offerExpiresAt)}.</>}
+            </p>
+          </div>
+          <span className="text-sm font-semibold text-emerald-700 whitespace-nowrap group-hover:underline">Review offer →</span>
+        </Link>
+      )}
+
+      {placedWith && (
+        <p className="mt-6 flex items-center gap-3 rounded-xl border border-emerald-200 bg-emerald-50 px-5 py-4 text-sm text-emerald-800">
+          <Trophy size={18} className="shrink-0" />
+          Placed at <span className="font-semibold">{placedWith.companyName}</span> as {placedWith.jobTitle}. Congratulations!
+        </p>
+      )}
 
       {!profile?.profileCompleted && (
         <div className="mt-6 bg-amber-50/70 border border-amber-200 rounded-xl px-5 py-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3">

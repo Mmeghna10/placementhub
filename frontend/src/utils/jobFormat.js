@@ -65,3 +65,17 @@ export function calendarParts(isoDateTime) {
   const d = new Date(isoDateTime);
   return { day: String(d.getDate()), month: d.toLocaleString('en-IN', { month: 'short' }) };
 }
+
+/** "2 days 4 h left", "5 h 12 min left", "45 min left", or null once the time has passed. */
+export function timeLeft(isoDateTime, now = new Date()) {
+  if (!isoDateTime) return null;
+  const minutes = Math.floor((new Date(isoDateTime) - now) / 60_000);
+  if (minutes < 0) return null;
+  if (minutes < 1) return 'less than a minute left';
+  const days = Math.floor(minutes / 1440);
+  const hours = Math.floor((minutes % 1440) / 60);
+  const mins = minutes % 60;
+  if (days > 0) return `${days} day${days === 1 ? '' : 's'}${hours ? ` ${hours} h` : ''} left`;
+  if (hours > 0) return `${hours} h${mins ? ` ${mins} min` : ''} left`;
+  return `${mins} min left`;
+}

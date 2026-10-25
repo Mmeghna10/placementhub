@@ -178,6 +178,11 @@ public class StudentService {
     public ApplicationResponse applyToJob(Long jobId) {
         Student student = getCurrentStudent();
 
+        if (student.getPlacedApplicationId() != null) {
+            throw new BusinessRuleException("ALREADY_PLACED",
+                    "You have accepted an offer, so you can't apply to more jobs.");
+        }
+
         Job job = jobRepository.findByIdForApplication(jobId)
                 .orElseThrow(() -> new NotFoundException("Job not found"));
 

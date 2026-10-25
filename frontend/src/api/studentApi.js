@@ -10,6 +10,9 @@ export const getApplicationDetails = (id) => axiosInstance.get(`/api/students/ap
 // Interview slot booking (application must be in INTERVIEW)
 export const getInterviewSlots = (applicationId) => axiosInstance.get(`/api/students/applications/${applicationId}/slots`);
 export const bookInterviewSlot = (applicationId, slotId) => axiosInstance.post(`/api/students/applications/${applicationId}/slots/${slotId}/booking`);
+// Offers: accept or decline before the deadline
+export const acceptOffer = (applicationId) => axiosInstance.post(`/api/students/applications/${applicationId}/offer/accept`);
+export const declineOffer = (applicationId) => axiosInstance.post(`/api/students/applications/${applicationId}/offer/decline`);
 export const cancelInterviewBooking = (applicationId) => axiosInstance.delete(`/api/students/applications/${applicationId}/booking`);
 
 // Paginated job search; params: { q, jobType, location, eligibleOnly, sort, page, size }

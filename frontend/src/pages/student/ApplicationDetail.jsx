@@ -4,6 +4,7 @@ import DashboardLayout from '../../components/DashboardLayout';
 import LoadingState from '../../components/LoadingState';
 import StatusBadge from '../../components/StatusBadge';
 import CompanyAvatar from '../../components/CompanyAvatar';
+import OfferCard from '../../components/OfferCard';
 import { ArrowLeft, CalendarDays, History } from 'lucide-react';
 import { calendarParts, formatDateTime } from '../../utils/jobFormat';
 import {
@@ -143,6 +144,8 @@ export default function ApplicationDetail() {
         </div>
         <StatusBadge status={application.status} />
       </div>
+
+      <OfferCard application={application} onChanged={() => setReloadKey((k) => k + 1)} />
 
       <div className="grid gap-6 lg:grid-cols-2 items-start">
 

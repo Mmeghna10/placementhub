@@ -3,7 +3,7 @@ import userEvent from '@testing-library/user-event';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { STUDENT, apiError, deferred, renderPage } from '../../test/render';
 import {
-  bookInterviewSlot, cancelInterviewBooking, getApplicationDetails, getInterviewSlots,
+  acceptOffer, bookInterviewSlot, cancelInterviewBooking, declineOffer, getApplicationDetails, getInterviewSlots,
 } from '../../api/studentApi';
 import ApplicationDetail from './ApplicationDetail';
 
@@ -116,5 +116,74 @@ describe('Application page', () => {
     open();
 
     expect(await screen.findByText(/no interview slots are available yet/i)).toBeInTheDocument();
+  });
+
+  describe('offers', () => {
+    const inTwoDays = () => new Date(Date.now() + 2 * 86_400_000 + 90 * 60_000).toISOString();
+    const offered = (extra = {}) => application({ status: 'OFFERED', offerExpiresAt: inTwoDays(), ...extra });
+
+    it('shows the offer with its deadline and accepts it with one request on a double-click', async () => {
+      const pending = deferred();
+      getApplicationDetails
+        .mockResolvedValueOnce({ data: offered() })
+        .mockResolvedValue({ data: application({ status: 'ACCEPTED' }) });
+      acceptOffer.mockReturnValue(pending.promise);
+      open();
+
+      expect(await screen.findByText('You have an offer from Acme!')).toBeInTheDocument();
+      expect(screen.getByText(/2 days 1 h left/)).toBeInTheDocument();
+
+      // Two clicks before React re-renders (what a fast double-click does).
+      const accept = screen.getByRole('button', { name: 'Accept offer' });
+      accept.click();
+      accept.click();
+      pending.resolve({ data: {} });
+
+      expect(await screen.findByText(/you're placed/i)).toBeInTheDocument();
+      expect(acceptOffer).toHaveBeenCalledTimes(1);
+      expect(acceptOffer).toHaveBeenCalledWith(3);
+    });
+
+    it('asks before declining and does nothing if the student cancels', async () => {
+      getApplicationDetails.mockResolvedValue({ data: offered() });
+      window.confirm.mockReturnValue(false);
+      open();
+
+      await userEvent.setup().click(await screen.findByRole('button', { name: 'Decline' }));
+
+      expect(window.confirm).toHaveBeenCalledWith(expect.stringMatching(/decline the offer from acme/i));
+      expect(declineOffer).not.toHaveBeenCalled();
+    });
+
+    it('declines after confirming', async () => {
+      getApplicationDetails
+        .mockResolvedValueOnce({ data: offered() })
+        .mockResolvedValue({ data: application({ status: 'DECLINED' }) });
+      declineOffer.mockResolvedValue({ data: {} });
+      open();
+
+      await userEvent.setup().click(await screen.findByRole('button', { name: 'Decline' }));
+
+      expect(declineOffer).toHaveBeenCalledWith(3);
+      expect(await screen.findByText('You declined this offer.')).toBeInTheDocument();
+    });
+
+    it("shows the server's reason when the offer expired while the page was open", async () => {
+      getApplicationDetails.mockResolvedValue({ data: offered() });
+      acceptOffer.mockRejectedValue(apiError(422, { code: 'OFFER_EXPIRED', error: 'This offer expired on 2026-10-25T12:00.' }));
+      open();
+
+      await userEvent.setup().click(await screen.findByRole('button', { name: 'Accept offer' }));
+
+      expect(await screen.findByRole('alert')).toHaveTextContent('This offer expired on 2026-10-25T12:00.');
+    });
+
+    it('explains an expired offer', async () => {
+      getApplicationDetails.mockResolvedValue({ data: application({ status: 'EXPIRED' }) });
+      open();
+
+      expect(await screen.findByText(/expired without a reply/i)).toBeInTheDocument();
+      expect(screen.queryByRole('button', { name: 'Accept offer' })).not.toBeInTheDocument();
+    });
   });
 });

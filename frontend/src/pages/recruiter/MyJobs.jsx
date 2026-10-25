@@ -4,6 +4,7 @@ import DashboardLayout from '../../components/DashboardLayout';
 import LoadingState from '../../components/LoadingState';
 import EmptyState from '../../components/EmptyState';
 import StatusBadge from '../../components/StatusBadge';
+import SeatMeter from '../../components/SeatMeter';
 import { getMyJobs, deleteJob, closeJob } from '../../api/recruiterApi';
 import { Plus, Trash2, Pencil, Users, CalendarClock, Lock } from 'lucide-react';
 
@@ -81,7 +82,8 @@ export default function MyJobs() {
                   <p className="text-xs text-slate mt-0.5">{job.location} · {job.jobType?.replace('_', ' ')}</p>
                 </div>
 
-                <div className="flex items-center gap-3">
+                <div className="flex items-center gap-4">
+                  <div className="hidden md:block"><SeatMeter job={job} compact /></div>
                   <StatusBadge status={job.status} />
                   <Link
                     to={`/recruiter/jobs/${job.id}/applicants`}

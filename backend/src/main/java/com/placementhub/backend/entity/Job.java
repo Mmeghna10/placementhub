@@ -68,4 +68,22 @@ public class Job {
 
     @Column(name = "posted_at", updatable = false)
     private LocalDateTime postedAt = LocalDateTime.now();
+
+    /** How many people this job hires. Offers (pending + accepted) can never exceed it. */
+    @Column(nullable = false)
+    private Integer openings = 1;
+
+    /** How long a student has to accept or decline an offer for this job. */
+    @Column(name = "offer_deadline_hours", nullable = false)
+    private Integer offerDeadlineHours = 72;
+
+    /**
+     * Seat counters, read-only here: they are changed only by the atomic conditional
+     * UPDATEs in JobRepository, so saving a Job can never overwrite them with stale values.
+     */
+    @Column(name = "offers_pending", nullable = false, insertable = false, updatable = false)
+    private Integer offersPending = 0;
+
+    @Column(name = "offers_accepted", nullable = false, insertable = false, updatable = false)
+    private Integer offersAccepted = 0;
 }

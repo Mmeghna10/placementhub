@@ -99,6 +99,7 @@ class Milestone2ServiceRulesTest {
         @Spy JobMapper jobMapper = new JobMapper();
         @Mock ApplicationMapper applicationMapper;
         @Mock InterviewSlotRepository slotRepository;
+        @Mock OfferService offerService;
         @Mock Clock clock;
         @InjectMocks RecruiterService recruiterService;
 

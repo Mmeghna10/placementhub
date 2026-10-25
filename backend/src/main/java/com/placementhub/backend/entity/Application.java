@@ -43,4 +43,8 @@ public class Application {
 
     @Column(name = "updated_at")
     private LocalDateTime updatedAt = LocalDateTime.now();
+
+    /** While OFFERED: when the offer lapses if the student has not replied. */
+    @Column(name = "offer_expires_at")
+    private LocalDateTime offerExpiresAt;
 }

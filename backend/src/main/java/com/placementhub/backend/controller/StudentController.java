@@ -3,6 +3,7 @@ package com.placementhub.backend.controller;
 import jakarta.validation.Valid;
 import com.placementhub.backend.dto.*;
 import com.placementhub.backend.service.InterviewSlotService;
+import com.placementhub.backend.service.OfferService;
 import com.placementhub.backend.service.StudentService;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import io.swagger.v3.oas.annotations.Operation;
@@ -29,6 +30,7 @@ public class StudentController {
 
     private final StudentService studentService;
     private final InterviewSlotService interviewSlotService;
+    private final OfferService offerService;
 
     @GetMapping("/profile")
     public ResponseEntity<StudentProfileResponse> getProfile() {
@@ -114,6 +116,18 @@ public class StudentController {
     @PostMapping("/applications/{id}/slots/{slotId}/booking")
     public ResponseEntity<ApplicationResponse> bookInterviewSlot(@PathVariable Long id, @PathVariable Long slotId) {
         return ResponseEntity.status(HttpStatus.CREATED).body(interviewSlotService.bookSlot(id, slotId));
+    }
+
+    @Operation(summary = "Accept my offer", description = "Before its deadline. Places the student: 422 OFFER_EXPIRED / OFFER_NOT_PENDING; 409 CONCURRENT_UPDATE if the offer changed at the same moment.")
+    @PostMapping("/applications/{id}/offer/accept")
+    public ResponseEntity<ApplicationResponse> acceptOffer(@PathVariable Long id) {
+        return ResponseEntity.ok(offerService.accept(id));
+    }
+
+    @Operation(summary = "Decline my offer", description = "Frees the opening for another candidate. 422 OFFER_NOT_PENDING.")
+    @PostMapping("/applications/{id}/offer/decline")
+    public ResponseEntity<ApplicationResponse> declineOffer(@PathVariable Long id) {
+        return ResponseEntity.ok(offerService.decline(id));
     }
 
     @DeleteMapping("/applications/{id}/booking")

@@ -48,4 +48,15 @@ public class Student {
 
     @Column(name = "profile_completed")
     private Boolean profileCompleted = false;
+
+    /**
+     * The application with this student's one pending offer, and the one they accepted.
+     * Read-only here: claimed and released only by the conditional UPDATEs in
+     * StudentRepository, so two simultaneous offers or acceptances cannot both win.
+     */
+    @Column(name = "pending_offer_application_id", insertable = false, updatable = false)
+    private Long pendingOfferApplicationId;
+
+    @Column(name = "placed_application_id", insertable = false, updatable = false)
+    private Long placedApplicationId;
 }

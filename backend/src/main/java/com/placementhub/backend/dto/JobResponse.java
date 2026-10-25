@@ -29,4 +29,10 @@ public class JobResponse {
      * (in app.timezone). The server still re-checks this when the student applies.
      */
     private Boolean acceptingApplications;
+
+    private Integer openings;
+    private Integer offerDeadlineHours;
+    /** Offers waiting for the student's reply, and offers accepted. */
+    private Integer offersPending;
+    private Integer offersAccepted;
 }
