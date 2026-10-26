@@ -5,6 +5,7 @@ import com.placementhub.backend.dto.JobRequest;
 import com.placementhub.backend.entity.*;
 import com.placementhub.backend.enums.ApplicationStatus;
 import com.placementhub.backend.enums.JobStatus;
+import com.placementhub.backend.enums.JobTier;
 import com.placementhub.backend.enums.Role;
 import com.placementhub.backend.exception.ApiException;
 import com.placementhub.backend.repository.*;
@@ -433,6 +434,133 @@ class OfferDeskIntegrationTest extends MySqlIntegrationTest {
         assertThat(status(a)).isEqualTo("WAITLISTED");
     }
 
+    // ------------------------------------------------------------- tiers and rules (phase 3)
+
+    @Test
+    void anUpgradeReleasesTheEarlierPlacementAndItsOpeningRefillsFromTheWaitlist() {
+        Recruiter regularCo = recruiter();
+        Job regular = job(regularCo, 1, 72);
+        Student student = student();
+        Application placed = offered(regularCo, regular, student);
+        loginAs(student.getUser().getEmail());
+        offerService.accept(placed.getId());
+        Application waiting = waitlisted(regularCo, regular, student());
+
+        Recruiter dreamCo = recruiter();
+        Job dream = jobWithTier(dreamCo, JobTier.DREAM);
+        Application upgrade = offered(dreamCo, dream, student);
+        loginAs(student.getUser().getEmail());
+        offerService.accept(upgrade.getId());
+
+        assertThat(status(upgrade)).isEqualTo("ACCEPTED");
+        assertThat(status(placed)).isEqualTo("RELEASED");
+        assertThat(jdbc.queryForObject("SELECT placed_application_id FROM students WHERE id = ?", Long.class, student.getId()))
+                .isEqualTo(upgrade.getId());
+        assertThat(jdbc.queryForObject("SELECT placed_tier FROM students WHERE id = ?", Integer.class, student.getId()))
+                .isEqualTo(JobTier.DREAM.rank());
+        // The cascade: the released opening went straight to the regular company's waitlist.
+        assertThat(status(waiting)).isEqualTo("OFFERED");
+        assertThat(seats(regular)).isEqualTo(List.of(1, 0));
+        assertThat(seats(dream)).isEqualTo(List.of(0, 1));
+    }
+
+    @Test
+    void aPlacedStudentCanOnlyTakeHigherTiersUpToTheMaximum() {
+        Recruiter recruiter = recruiter();
+        Student student = student();
+        Application placed = offered(recruiter, job(recruiter, 1, 72), student);
+        loginAs(student.getUser().getEmail());
+        offerService.accept(placed.getId());
+
+        Job sameTier = job(recruiter(), 1, 72);
+        Job dream = jobWithTier(recruiter(), JobTier.DREAM);
+        loginAs(student.getUser().getEmail());
+        assertThatThrownBy(() -> studentService.applyToJob(sameTier.getId()))
+                .isInstanceOf(ApiException.class).extracting("code").isEqualTo("ALREADY_PLACED");
+        studentService.applyToJob(dream.getId());
+
+        // Upgrade to Dream: that is the second accepted offer, the default maximum.
+        Recruiter dreamCo = recruiter();
+        Application upgrade = offered(dreamCo, jobWithTier(dreamCo, JobTier.DREAM), student);
+        loginAs(student.getUser().getEmail());
+        offerService.accept(upgrade.getId());
+
+        Job superDream = jobWithTier(recruiter(), JobTier.SUPER_DREAM);
+        loginAs(student.getUser().getEmail());
+        assertThatThrownBy(() -> studentService.applyToJob(superDream.getId()))
+                .isInstanceOf(ApiException.class).extracting("code").isEqualTo("ALREADY_PLACED");
+    }
+
+    @Test
+    void acceptingWithdrawsApplicationsTheRulesNowForbidAndCancelsTheirInterviews() {
+        Student student = student();
+        Recruiter lowerCo = recruiter();
+        Application lower = application(student, job(lowerCo, 1, 72), ApplicationStatus.INTERVIEW);
+        InterviewSlot slot = slot(lower.getJob(), LocalDateTime.now(APP_ZONE).plusDays(3).withNano(0), 30, 2);
+        loginAs(student.getUser().getEmail());
+        interviewSlotService.bookSlot(lower.getId(), slot.getId());
+        Application higher = application(student, jobWithTier(recruiter(), JobTier.SUPER_DREAM), ApplicationStatus.APPLIED);
+
+        Recruiter dreamCo = recruiter();
+        Application offer = offered(dreamCo, jobWithTier(dreamCo, JobTier.DREAM), student);
+        loginAs(student.getUser().getEmail());
+        offerService.accept(offer.getId());
+
+        assertThat(status(lower)).isEqualTo("WITHDRAWN");
+        assertThat(jdbc.queryForObject("SELECT COUNT(*) FROM interview_bookings WHERE application_id = ?",
+                Integer.class, lower.getId())).isZero();
+        assertThat(jdbc.queryForObject("SELECT booked_count FROM interview_slots WHERE id = ?", Integer.class, slot.getId()))
+                .isZero();
+        assertThat(status(higher)).as("a higher tier stays open for an upgrade").isEqualTo("APPLIED");
+    }
+
+    @Test
+    void withoutUpgradesAPlacedStudentGetsNoFurtherOffers() {
+        jdbc.update("UPDATE placement_policy SET allow_upgrades = FALSE WHERE id = 1");
+        try {
+            Recruiter recruiter = recruiter();
+            Student student = student();
+            Application placed = offered(recruiter, job(recruiter, 1, 72), student);
+            loginAs(student.getUser().getEmail());
+            offerService.accept(placed.getId());
+
+            Recruiter dreamCo = recruiter();
+            Application dreamApplication = application(student, jobWithTier(dreamCo, JobTier.DREAM), ApplicationStatus.INTERVIEW);
+            loginAs(dreamCo.getUser().getEmail());
+            assertThatThrownBy(() -> recruiterService.updateApplicationStatus(dreamApplication.getId(), offer()))
+                    .isInstanceOf(ApiException.class).extracting("code").isEqualTo("STUDENT_ALREADY_PLACED");
+        } finally {
+            jdbc.update("UPDATE placement_policy SET allow_upgrades = TRUE, max_accepted_offers = 2 WHERE id = 1");
+        }
+    }
+
+    @Test
+    void anAcceptanceNeverFailsBecauseARecruiterIsMovingAnApplicationItWithdraws() throws Exception {
+        Student student = student();
+        Recruiter lowerCo = recruiter();
+        Application lower = application(student, job(lowerCo, 1, 72), ApplicationStatus.SHORTLISTED);
+        Recruiter dreamCo = recruiter();
+        Application offer = offered(dreamCo, jobWithTier(dreamCo, JobTier.DREAM), student);
+
+        // Thread 0 accepts the Dream offer; the others are the lower company moving the
+        // application that the acceptance will withdraw.
+        List<String> outcomes = race(THREADS, i -> () -> {
+            if (i == 0) {
+                loginAs(student.getUser().getEmail());
+                offerService.accept(offer.getId());
+            } else {
+                loginAs(lowerCo.getUser().getEmail());
+                ApplicationStatusUpdateRequest request = new ApplicationStatusUpdateRequest();
+                request.setStatus("INTERVIEW");
+                recruiterService.updateApplicationStatus(lower.getId(), request);
+            }
+        });
+
+        assertThat(outcomes.get(0)).as("the acceptance").isEqualTo("OK");
+        assertThat(status(offer)).isEqualTo("ACCEPTED");
+        assertThat(status(lower)).as("withdrawn whatever the order").isEqualTo("WITHDRAWN");
+    }
+
     // ------------------------------------------------------------- race harness
 
     private List<String> race(int threads, Function<Integer, ThrowingRunnable> taskFactory) throws Exception {
@@ -582,6 +710,16 @@ class OfferDeskIntegrationTest extends MySqlIntegrationTest {
         job.setStatus(JobStatus.APPROVED);
         job.setOpenings(openings);
         job.setOfferDeadlineHours(offerDeadlineHours);
+        return jobRepository.save(job);
+    }
+
+    private Job jobWithTier(Recruiter recruiter, JobTier tier) {
+        Job job = new Job();
+        job.setRecruiter(recruiter);
+        job.setCompany(recruiter.getCompany());
+        job.setTitle(tier + " role");
+        job.setStatus(JobStatus.APPROVED);
+        job.setTier(tier);
         return jobRepository.save(job);
     }
 

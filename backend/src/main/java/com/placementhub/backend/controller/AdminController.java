@@ -2,6 +2,8 @@ package com.placementhub.backend.controller;
 
 import com.placementhub.backend.dto.*;
 import com.placementhub.backend.service.AdminService;
+import com.placementhub.backend.service.PlacementRules;
+import com.placementhub.backend.entity.PlacementPolicy;
 import jakarta.validation.Valid;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import lombok.RequiredArgsConstructor;
@@ -19,6 +21,7 @@ import java.util.List;
 public class AdminController {
 
     private final AdminService adminService;
+    private final PlacementRules placementRules;
 
     @GetMapping("/dashboard")
     public ResponseEntity<AdminDashboardResponse> getDashboard() {
@@ -49,6 +52,24 @@ public class AdminController {
     @GetMapping("/jobs/pending")
     public ResponseEntity<List<JobResponse>> getPendingJobs() {
         return ResponseEntity.ok(adminService.getPendingJobs());
+    }
+
+    /** The campus placement rules (tiers and upgrades). */
+    @GetMapping("/placement-policy")
+    public ResponseEntity<PlacementPolicyDto> getPlacementPolicy() {
+        return ResponseEntity.ok(toDto(placementRules.policy()));
+    }
+
+    @PutMapping("/placement-policy")
+    public ResponseEntity<PlacementPolicyDto> updatePlacementPolicy(@Valid @RequestBody PlacementPolicyDto request) {
+        return ResponseEntity.ok(toDto(placementRules.update(request)));
+    }
+
+    private static PlacementPolicyDto toDto(PlacementPolicy policy) {
+        PlacementPolicyDto dto = new PlacementPolicyDto();
+        dto.setAllowUpgrades(policy.getAllowUpgrades());
+        dto.setMaxAcceptedOffers(policy.getMaxAcceptedOffers());
+        return dto;
     }
 
     @PutMapping("/jobs/{jobId}/approve")

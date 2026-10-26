@@ -82,6 +82,7 @@ class ApiSecurityTest {
     @MockitoBean AdminService adminService;
     @MockitoBean InterviewSlotService interviewSlotService;
     @MockitoBean OfferService offerService;
+    @MockitoBean com.placementhub.backend.service.PlacementRules placementRules;
 
     @BeforeEach
     void users() {

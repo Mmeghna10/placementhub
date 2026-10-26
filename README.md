@@ -38,6 +38,7 @@ It is a **Spring Boot modular monolith** with a **React** frontend and **MySQL**
 - Track each application with a dated status timeline (Applied → Shortlisted → Interview → Offered → Accepted / Declined / Expired, or Rejected).
 - Book an interview slot once an application reaches Interview, and cancel it before the slot starts. Overlapping interviews with different companies are refused.
 - **Offer Desk:** accept or decline an offer before its deadline, with a live countdown. A student holds one pending offer at a time and is placed once; after that they can't apply to more jobs. A waitlisted student sees their live position ("#2 on the waitlist").
+- **Placement tiers:** once placed, a student may only take higher-tier jobs, up to the campus maximum. Accepting a higher-tier offer releases the earlier placement (that company's waitlist refills it automatically), and applications the rules now forbid are withdrawn, with their interviews cancelled.
 
 **Recruiter**
 - Personal and company profiles.
@@ -50,7 +51,8 @@ It is a **Spring Boot modular monolith** with a **React** frontend and **MySQL**
 
 **Admin**
 - Dashboard with live counts, pending approvals and analytics charts.
-- Approve or reject job postings; browse students and recruiters (paginated).
+- Approve or reject job postings, choosing each job's **tier** (Regular, Dream, Super-dream); browse students and recruiters (paginated).
+- **Placement rules:** whether placed students may upgrade to a higher tier, and how many offers a student may accept in total. With upgrades off: one student, one job.
 - The first admin account is created from environment variables. Admins cannot sign up through the website.
 
 **AI guide**
@@ -167,6 +169,7 @@ erDiagram
 | `V2__status_indexes.sql` | Indexes `jobs(status, posted_at)` and `applications(status)` for the common list queries. |
 | `V3__application_integrity.sql` | `UNIQUE (student_id, job_id)`, `version` columns on `applications` and `jobs`, and `CHECK` constraints on both status columns. |
 | `V4__interview_slots.sql` | `interview_slots` (capacity checks) and `interview_bookings` (`UNIQUE (application_id)`). |
+| `V7__placement_tiers.sql` | Job `tier`; the student's `placed_tier` and `accepted_count`; statuses `WITHDRAWN` and `RELEASED`; the single-row `placement_policy` table. Existing jobs become Regular; existing placements are backfilled. |
 | `V6__offer_waitlist.sql` | `waitlist_rank` and the `WAITLISTED` status; index for reading a job's waitlist in order. |
 | `V5__offer_desk.sql` | Job `openings`, `offer_deadline_hours` and seat counters (`CHECK pending + accepted <= openings`); `offer_expires_at`; the student's one pending offer and one placement (unique keys); statuses `ACCEPTED`, `DECLINED`, `EXPIRED`. Earlier `OFFERED` applications are recorded as `ACCEPTED`, with a timeline note. |
 
@@ -217,7 +220,7 @@ All endpoints are documented with **OpenAPI**: run the backend and open **`/swag
 | Auth | `POST /api/auth/register`, `POST /api/auth/login` | Public, rate-limited |
 | Student | `/api/students/**`: profile, `jobs/search`, `jobs/{id}`, `jobs/{id}/apply`, applications, slots, booking, `applications/{id}/offer/accept` and `/decline` | STUDENT, own data only |
 | Recruiter | `/api/recruiter/**`: profile (with company), jobs (CRUD, `close`), applicants, `applications/{id}/status`, slots, `jobs/{id}/waitlist` (reorder) and `jobs/{id}/waitlist/fill` | RECRUITER, own jobs only |
-| Admin | `/api/admin/**`: dashboard, pending jobs, approve/reject, students, recruiters, analytics | ADMIN |
+| Admin | `/api/admin/**`: dashboard, pending jobs, approve/reject (with tier), students, recruiters, analytics, `placement-policy` | ADMIN |
 | Chat | `POST /api/chat` | Any logged-in user, rate-limited |
 | Health | `/actuator/health/liveness`, `/actuator/health/readiness` | Public, UP/DOWN only |
 | Metrics | `/actuator/metrics/**` | ADMIN |
@@ -251,7 +254,7 @@ Each rule below is enforced by **the database**, not only by a check in Java. A 
 | **B. Applying while a job closes** | Recruiter closes or edits the job mid-application | The job row is read with `SELECT … FOR SHARE`, so closing waits for in-flight applications. Deadline and eligibility are checked on the server in `app.timezone`. | Every request is either fully accepted or refused with `JOB_NOT_OPEN`. |
 | **C. Last interview seats** | Many students book the last seats | Atomic `UPDATE … SET booked_count = booked_count + 1 WHERE booked_count < capacity`, with a `CHECK` constraint and `UNIQUE (application_id)` as backups | 3 seats → exactly 3 bookings, 17 × `SLOT_FULL`. |
 | **D. Two recruiters change one status** | Lost update | State machine (`ApplicationStatus`), the client sends its `version`, and the `@Version` column catches true races | 1 success, 19 × 409, 1 timeline row. |
-| **E. Offers (Offer Desk)** | Recruiters offering the last openings; companies offering one student; accept, decline and expiry colliding | Atomic seat counter (`… WHERE pending + accepted < openings`); conditional claim of the student's one pending offer (`… WHERE pending_offer_application_id IS NULL`); the application's `@Version` decides how an offer ends | 3 openings → exactly 3 offers; 20 companies → 1 offer, the rest keep their seats; accept ⨯ decline ⨯ expiry → exactly one outcome. Waitlist promotion uses a conditional `UPDATE … WHERE status = 'WAITLISTED'`: 10 simultaneous declines with 3 waiting → each promoted exactly once, no decline fails. |
+| **E. Offers (Offer Desk)** | Recruiters offering the last openings; companies offering one student; accept, decline and expiry colliding | Atomic seat counter (`… WHERE pending + accepted < openings`); conditional claim of the student's one pending offer (`… WHERE pending_offer_application_id IS NULL`); the application's `@Version` decides how an offer ends | 3 openings → exactly 3 offers; 20 companies → 1 offer, the rest keep their seats; accept ⨯ decline ⨯ expiry → exactly one outcome. Waitlist promotion uses a conditional `UPDATE … WHERE status = 'WAITLISTED'`: 10 simultaneous declines with 3 waiting → each promoted exactly once, no decline fails. Tier rules are checked inside the same conditional `UPDATE`s (`placed_tier < :tier AND accepted_count < :max`), and an acceptance never fails because a recruiter is moving an application it withdraws. |
 | **F. Overlapping interviews** | One student books two companies' overlapping slots from two tabs | The student's row is locked (`FOR UPDATE`) as the transaction's first read, then the overlap is checked | Exactly 1 booking, no seat leaked. |
 
 No Redis or distributed locks are used. Every rule lives in one MySQL database, which already provides the locks and constraints needed. The full write-up, with the alternatives considered, is in **[docs/concurrency.md](docs/concurrency.md)**.
@@ -303,10 +306,10 @@ Prerequisites: JDK 17+, Node.js 20+, MySQL 8.
 
 | Suite | Count | What it covers | Command |
 |---|---|---|---|
-| Backend unit and web tests | part of 130 | Business rules and the status state machine, token bucket, JWT/security rules (401/403/404 for other users' data), admin bootstrap | `cd backend` then `./mvnw test` |
-| Backend MySQL integration tests | part of 130 | Flyway migrations, transaction rollback, **N+1 query counts**, search SQL, **concurrency scenarios A–F**, health, observability, OpenAPI | same, with `PLACEMENTHUB_IT_DB_*` set (below) |
-| Frontend component tests | 75 | Login/register, route protection, session expiry, search/filters/paging, apply (double-click, 409), booking, recruiter status changes with version conflicts, admin approval, loading/empty/error states | `cd frontend` then `npm test` |
-| **End-to-end (Playwright)** | 20 | The 7 journeys in a real browser against the full Docker stack, plus the offer flow (offer → accept → opening filled, extra offer refused), the waitlist (build, reorder, decline → next candidate offered automatically) and the security headers (CSP present, no page violates it): register and log in; see eligible jobs; apply (double-click sends one request); duplicate refused; recruiter reviews their own applicant; admin approves jobs; invalid and unauthorized requests refused (401/403/404/400, route guards) | `e2e\run-e2e.ps1` |
+| Backend unit and web tests | part of 135 | Business rules and the status state machine, token bucket, JWT/security rules (401/403/404 for other users' data), admin bootstrap | `cd backend` then `./mvnw test` |
+| Backend MySQL integration tests | part of 135 | Flyway migrations, transaction rollback, **N+1 query counts**, search SQL, **concurrency scenarios A–F**, health, observability, OpenAPI | same, with `PLACEMENTHUB_IT_DB_*` set (below) |
+| Frontend component tests | 80 | Login/register, route protection, session expiry, search/filters/paging, apply (double-click, 409), booking, recruiter status changes with version conflicts, admin approval, loading/empty/error states | `cd frontend` then `npm test` |
+| **End-to-end (Playwright)** | 21 | The 7 journeys in a real browser against the full Docker stack, plus the offer flow (offer → accept → opening filled, extra offer refused), the waitlist (build, reorder, decline → next candidate offered automatically), tier upgrades (Dream approval → upgrade → Regular placement released → its waitlist refilled) and the security headers (CSP present, no page violates it): register and log in; see eligible jobs; apply (double-click sends one request); duplicate refused; recruiter reviews their own applicant; admin approves jobs; invalid and unauthorized requests refused (401/403/404/400, route guards) | `e2e\run-e2e.ps1` |
 | Load test (k6) | 4 scenarios | Throughput and latency, plus correctness under bursts | `load-tests\run-load-test.ps1` |
 
 The MySQL integration tests need an empty database whose name ends in `_it` or `_test`. They are skipped when it is not configured:
@@ -317,7 +320,7 @@ $env:PLACEMENTHUB_IT_DB_USER = "root"
 $env:PLACEMENTHUB_IT_DB_PASSWORD = "YOUR_MYSQL_PASSWORD"
 .\mvnw.cmd test
 ```
-In CI all 130 backend tests run against a MySQL 8.0.46 service container. Frontend tests mock the API, so they need no backend. Other commands are `npm run test:watch` and `npm run test:coverage`.
+In CI all 135 backend tests run against a MySQL 8.0.46 service container. Frontend tests mock the API, so they need no backend. Other commands are `npm run test:watch` and `npm run test:coverage`.
 
 **End-to-end tests:** `powershell -ExecutionPolicy Bypass -File e2e\run-e2e.ps1` starts a separate, throwaway copy of the stack (project `placementhub-e2e`, port 3200, random secrets, its own admin), runs the Playwright tests in Chromium and deletes the stack again. Add `-Headed` to watch the browser. Your normal stack and data are never touched. CI runs the same tests on every pull request.
 
@@ -346,9 +349,9 @@ Method, raw numbers and the connection-pool experiment are in **[docs/performanc
 flowchart LR
     PR[Pull request / push to main] --> CI
     subgraph CI["ci.yml"]
-        B["Backend: 130 tests<br/>on MySQL 8.0.46"]
-        F["Frontend: lint, 75 tests,<br/>npm audit, build"]
-        E["E2E: 20 Playwright tests<br/>on the full Docker stack"]
+        B["Backend: 135 tests<br/>on MySQL 8.0.46"]
+        F["Frontend: lint, 80 tests,<br/>npm audit, build"]
+        E["E2E: 21 Playwright tests<br/>on the full Docker stack"]
         D["Docker: build images,<br/>Trivy scan"]
     end
     CI -- all green --> DB["Deploy backend<br/>Azure App Service"]

@@ -315,9 +315,9 @@ There are two layers, because the URL rule alone isn't enough:
 
 | Fact | Value | Source |
 |---|---|---|
-| Backend tests | 130 (unit, web security, MySQL integration, concurrency, API docs) | `./mvnw verify` in CI |
-| End-to-end tests | 20 Playwright tests (the 7 journeys, the offer flow, the waitlist, security headers) against the full Docker stack | `e2e/run-e2e.ps1`, CI |
-| Frontend tests | 75 component tests, ~59% line coverage | `npm test` |
+| Backend tests | 135 (unit, web security, MySQL integration, concurrency, API docs) | `./mvnw verify` in CI |
+| End-to-end tests | 21 Playwright tests (the 7 journeys, offers, waitlist, tier upgrades, security headers) against the full Docker stack | `e2e/run-e2e.ps1`, CI |
+| Frontend tests | 80 component tests, ~59% line coverage | `npm test` |
 | Duplicates without the unique key | 12 from 20 simultaneous clicks | concurrency mutation check |
 | Search throughput (one laptop) | ~2,200–2,400 req/s at p95 40–45 ms | `docs/performance.md` |
 | Apply burst | 200 students × 3 clicks → exactly 200 applications, 0 errors | k6 |

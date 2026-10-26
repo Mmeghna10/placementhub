@@ -28,6 +28,7 @@ const roleLinks = {
     { to: '/admin/jobs', label: 'Jobs' },
     { to: '/admin/students', label: 'Students' },
     { to: '/admin/recruiters', label: 'Recruiters' },
+    { to: '/admin/placement-rules', label: 'Rules' },
     { to: '/admin/analytics', label: 'Analytics' },
   ],
 };

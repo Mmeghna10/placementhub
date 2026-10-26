@@ -23,7 +23,7 @@ class FlywayMigrationIntegrationTest extends MySqlIntegrationTest {
                 "SELECT version FROM flyway_schema_history WHERE success = 1 AND version IS NOT NULL ORDER BY installed_rank",
                 String.class);
 
-        assertThat(versions).contains("1", "2", "3", "4", "5");
+        assertThat(versions).contains("1", "2", "3", "4", "5", "6", "7");
         assertThat(jdbc.queryForObject(
                 "SELECT COUNT(*) FROM flyway_schema_history WHERE success = 0", Integer.class)).isZero();
     }

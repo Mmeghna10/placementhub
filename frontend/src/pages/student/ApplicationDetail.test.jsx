@@ -194,4 +194,11 @@ describe('Application page', () => {
     expect(await screen.findByText('#2')).toBeInTheDocument();
     expect(screen.getByText(/on the waitlist at/i)).toHaveTextContent(/next person automatically/i);
   });
+
+  it('explains an application withdrawn by the placement rules', async () => {
+    getApplicationDetails.mockResolvedValue({ data: application({ status: 'WITHDRAWN' }) });
+    open();
+
+    expect(await screen.findByText(/withdrawn automatically/i)).toHaveTextContent(/placement rules/i);
+  });
 });

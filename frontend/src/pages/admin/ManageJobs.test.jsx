@@ -19,7 +19,7 @@ describe('Admin jobs page', () => {
 
     await userEvent.setup().click(await screen.findByRole('button', { name: 'Approve' }));
 
-    expect(approveJob).toHaveBeenCalledWith(1, 'APPROVED');
+    expect(approveJob).toHaveBeenCalledWith(1, 'APPROVED', 'REGULAR');
     expect(await screen.findByText('Nothing pending')).toBeInTheDocument();
   });
 
@@ -32,6 +32,18 @@ describe('Admin jobs page', () => {
     expect(getAllJobs).not.toHaveBeenCalled();
   });
 
+  it('approves a job with the tier chosen for it', async () => {
+    getPendingJobs.mockResolvedValue({ data: [job(1, 'Java Developer', 'PENDING')] });
+    approveJob.mockResolvedValue({ data: {} });
+    renderPage(<ManageJobs />, { route: '/admin/jobs?pending=true', path: '/admin/jobs', user: ADMIN });
+
+    const user = userEvent.setup();
+    await user.selectOptions(await screen.findByRole('combobox', { name: 'Tier for Java Developer' }), 'DREAM');
+    await user.click(screen.getByRole('button', { name: 'Approve' }));
+
+    expect(approveJob).toHaveBeenCalledWith(1, 'APPROVED', 'DREAM');
+  });
+
   it('rejects a job', async () => {
     getPendingJobs.mockResolvedValue({ data: [job(1, 'Java Developer', 'PENDING')] });
     approveJob.mockResolvedValue({ data: {} });
@@ -39,7 +51,7 @@ describe('Admin jobs page', () => {
 
     await userEvent.setup().click(await screen.findByRole('button', { name: 'Reject' }));
 
-    expect(approveJob).toHaveBeenCalledWith(1, 'REJECTED');
+    expect(approveJob).toHaveBeenCalledWith(1, 'REJECTED', undefined);
   });
 
   it('shows the server message when a decision is refused', async () => {

@@ -59,6 +59,9 @@ class Milestone4RulesTest {
             assertThat(DECLINED.isFinal()).isTrue();
             assertThat(EXPIRED.isFinal()).isTrue();
             assertThat(REJECTED.isFinal()).isTrue();
+            assertThat(WITHDRAWN.isFinal()).isTrue();
+            assertThat(RELEASED.isFinal()).isTrue();
+            assertThat(WITHDRAWN.allowedNext()).isEmpty();
             assertThat(APPLIED.isFinal()).isFalse();
         }
     }

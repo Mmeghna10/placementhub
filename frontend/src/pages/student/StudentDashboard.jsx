@@ -8,6 +8,7 @@ import CompanyAvatar from '../../components/CompanyAvatar';
 import EmptyState from '../../components/EmptyState';
 import { Briefcase, CalendarDays, ChevronRight, FileText, Gift, Search, TrendingUp, Trophy, UserRoundPen } from 'lucide-react';
 import { formatDateTime } from '../../utils/jobFormat';
+import { tierLabel } from '../../utils/tiers';
 import { getStudentProfile, getMyApplications } from '../../api/studentApi';
 
 export default function StudentDashboard() {
@@ -72,7 +73,11 @@ export default function StudentDashboard() {
       {placedWith && (
         <p className="mt-6 flex items-center gap-3 rounded-xl border border-emerald-200 bg-emerald-50 px-5 py-4 text-sm text-emerald-800">
           <Trophy size={18} className="shrink-0" />
-          Placed at <span className="font-semibold">{placedWith.companyName}</span> as {placedWith.jobTitle}. Congratulations!
+          <span>
+            Placed at <span className="font-semibold">{placedWith.companyName}</span> as {placedWith.jobTitle}
+            {placedWith.jobTier && <> ({tierLabel(placedWith.jobTier)})</>}. Congratulations!
+            {placedWith.jobTier !== 'SUPER_DREAM' && <> Higher-tier jobs may still be open to you, depending on the placement rules.</>}
+          </span>
         </p>
       )}
 

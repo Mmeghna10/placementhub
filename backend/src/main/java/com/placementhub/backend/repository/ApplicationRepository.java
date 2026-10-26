@@ -65,4 +65,29 @@ public interface ApplicationRepository extends JpaRepository<Application, Long> 
             + "where a.id = :id and a.status = com.placementhub.backend.enums.ApplicationStatus.WAITLISTED")
     int promoteFromWaitlist(@Param("id") Long applicationId, @Param("expiresAt") LocalDateTime expiresAt,
                             @Param("now") LocalDateTime now);
+
+    // ---- Placement rules (Offer Desk phase 3)
+
+    /** A student's applications that are still in progress (not offered, not ended). */
+    @EntityGraph(attributePaths = {"job", "job.company"})
+    @Query("select a from Application a where a.student.id = :studentId and a.status in ("
+            + "com.placementhub.backend.enums.ApplicationStatus.APPLIED, "
+            + "com.placementhub.backend.enums.ApplicationStatus.SHORTLISTED, "
+            + "com.placementhub.backend.enums.ApplicationStatus.INTERVIEW, "
+            + "com.placementhub.backend.enums.ApplicationStatus.WAITLISTED)")
+    List<Application> findInProgressForStudent(@Param("studentId") Long studentId);
+
+    /**
+     * Withdraws an in-progress application, only if it is still in progress. Conditional,
+     * so a recruiter changing it at the same moment never makes the acceptance fail.
+     */
+    @Modifying(flushAutomatically = true)
+    @Query("update Application a set a.status = com.placementhub.backend.enums.ApplicationStatus.WITHDRAWN, "
+            + "a.waitlistRank = null, a.updatedAt = :now, a.version = a.version + 1 "
+            + "where a.id = :id and a.status in ("
+            + "com.placementhub.backend.enums.ApplicationStatus.APPLIED, "
+            + "com.placementhub.backend.enums.ApplicationStatus.SHORTLISTED, "
+            + "com.placementhub.backend.enums.ApplicationStatus.INTERVIEW, "
+            + "com.placementhub.backend.enums.ApplicationStatus.WAITLISTED)")
+    int withdrawIfInProgress(@Param("id") Long applicationId, @Param("now") LocalDateTime now);
 }

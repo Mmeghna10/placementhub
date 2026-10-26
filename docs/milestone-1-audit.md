@@ -849,6 +849,20 @@ Offer Desk, phase 2 (2026-10-26): a ranked waitlist that refills openings.
 - **Bug found by the E2E test:** the status-change request validation did not list `WAITLISTED`, so the recruiter's dropdown got a 400. The service tests missed it because they bypass HTTP. Now covered by a web-layer test over every status a recruiter can set (mutation-checked).
 - **Totals:** 130 backend, 75 frontend, 20 end-to-end.
 
+Deploy fix (2026-10-26, pull request #15): merging #13 and #14 back to back ran two deploys at once. Azure cancelled the newer frontend deploy (re-run by hand), and the backend deploys raced. Deploy jobs now have `concurrency` groups, so they queue in order.
+
+Offer Desk, phase 3 (2026-10-26): placement tiers and campus rules.
+- **Migration V7:** job `tier`; the student's `placed_tier` and `accepted_count`; statuses `WITHDRAWN` and `RELEASED`; the `placement_policy` table. Existing jobs become Regular.
+- **Tiers:** the placement cell picks the tier when approving a job.
+- **Rules page:** allow upgrades (on by default); maximum accepted offers (default 2).
+- **Enforced atomically:** a placed student may only take higher tiers, up to the maximum. The check is inside the same conditional UPDATEs that claim an offer and accept it.
+- **Upgrade:** accepting a higher tier releases the earlier placement. That opening refills from its waitlist (cascade across companies).
+- **Withdrawal:** in-progress applications the rules now forbid are withdrawn, and their interview bookings cancelled.
+- **Fix found by the race tests:** the reason given for a refused offer was read from the transaction's stale snapshot; it now comes from the rules.
+- **UI:** tier badges, a tier picker on approval, a "Placement rules" admin page, withdrawn/released messages, and the placement tier on the student dashboard.
+- **Totals:** 135 backend, 80 frontend, 21 end-to-end.
+- **Remaining:** phase 4 (Offer Desk dashboards).
+
 **Deliberately not built** (no requirement yet; see §8 and the README): Redis, background jobs, refresh tokens.
 
 **Known limitations (current):**

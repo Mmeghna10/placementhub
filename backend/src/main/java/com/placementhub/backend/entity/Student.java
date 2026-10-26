@@ -59,4 +59,12 @@ public class Student {
 
     @Column(name = "placed_application_id", insertable = false, updatable = false)
     private Long placedApplicationId;
+
+    /** Rank of the current placement's tier (0 = not placed); changed with placedApplicationId. */
+    @Column(name = "placed_tier", nullable = false, insertable = false, updatable = false)
+    private Integer placedTier = 0;
+
+    /** Offers accepted so far, including released ones. */
+    @Column(name = "accepted_count", nullable = false, insertable = false, updatable = false)
+    private Integer acceptedCount = 0;
 }

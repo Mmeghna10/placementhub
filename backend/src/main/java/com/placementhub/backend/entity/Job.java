@@ -1,6 +1,7 @@
 package com.placementhub.backend.entity;
 
 import com.placementhub.backend.enums.JobStatus;
+import com.placementhub.backend.enums.JobTier;
 import jakarta.persistence.*;
 import lombok.Data;
 import lombok.EqualsAndHashCode;
@@ -86,4 +87,9 @@ public class Job {
 
     @Column(name = "offers_accepted", nullable = false, insertable = false, updatable = false)
     private Integer offersAccepted = 0;
+
+    /** Placement tier, set by the placement cell when it approves the job. */
+    @Enumerated(EnumType.STRING)
+    @Column(nullable = false)
+    private JobTier tier = JobTier.REGULAR;
 }
