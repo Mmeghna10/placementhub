@@ -369,6 +369,7 @@ flowchart LR
   3. Merge.
   4. Watch both deploy runs.
   5. Confirm readiness is `UP` and do a smoke test.
+- **Deploys run one at a time:** each deploy job has a `concurrency` group, so merging two PRs back to back queues the deploys in order (the latest commit wins) instead of racing. This was found when two merges made Azure cancel one frontend deploy.
 - **Rollback:** re-run the deploy workflow of the last good commit, or revert the merge commit. A schema change is undone with a new migration, never by editing an old one.
 - **Repository setting (on):** a ruleset on `main` blocks force pushes and deletion, and requires a pull request plus the CI checks.
 - **Docker Compose** is for local development and the load-test stack. It is not a production orchestrator. Production runs on Azure's managed services.
