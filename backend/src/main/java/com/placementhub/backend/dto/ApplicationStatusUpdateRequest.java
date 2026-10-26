@@ -10,8 +10,9 @@ public class ApplicationStatusUpdateRequest {
     // Only known values pass validation; whether the move is allowed from the current
     // status is checked by ApplicationStatus.canMoveTo in the service.
     @NotBlank(message = "Status is required")
-    @Pattern(regexp = "APPLIED|SHORTLISTED|INTERVIEW|OFFERED|REJECTED",
-            message = "Status must be one of APPLIED, SHORTLISTED, INTERVIEW, OFFERED, REJECTED")
+    // Statuses a recruiter can set. ACCEPTED/DECLINED are the student's, EXPIRED the deadline's.
+    @Pattern(regexp = "APPLIED|SHORTLISTED|INTERVIEW|WAITLISTED|OFFERED|REJECTED",
+            message = "Status must be one of APPLIED, SHORTLISTED, INTERVIEW, WAITLISTED, OFFERED, REJECTED")
     private String status;
 
     @Size(max = 255, message = "Remarks must be at most 255 characters")

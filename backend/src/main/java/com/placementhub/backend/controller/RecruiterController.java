@@ -82,6 +82,19 @@ public class RecruiterController {
         return ResponseEntity.ok(recruiterService.updateApplicationStatus(id, request));
     }
 
+    @Operation(summary = "Offer free openings to the waitlist", description = "In rank order; skips candidates holding another offer or already placed. Use after raising the openings.")
+    @PostMapping("/jobs/{jobId}/waitlist/fill")
+    public ResponseEntity<List<ApplicationResponse>> fillFromWaitlist(@PathVariable Long jobId) {
+        return ResponseEntity.ok(recruiterService.fillFromWaitlist(jobId));
+    }
+
+    @Operation(summary = "Reorder the waitlist", description = "Send all waitlisted application ids, next in line first. 409 WAITLIST_CHANGED if the waitlist changed meanwhile.")
+    @PutMapping("/jobs/{jobId}/waitlist")
+    public ResponseEntity<List<ApplicationResponse>> reorderWaitlist(@PathVariable Long jobId,
+                                                                     @Valid @RequestBody WaitlistOrderRequest request) {
+        return ResponseEntity.ok(recruiterService.reorderWaitlist(jobId, request.getApplicationIds()));
+    }
+
     /** Stop accepting applications for an approved job. */
     @Operation(summary = "Close a job to new applications", description = "Waits for applications already in progress, then refuses new ones (JOB_NOT_OPEN).")
     @PostMapping("/jobs/{id}/close")

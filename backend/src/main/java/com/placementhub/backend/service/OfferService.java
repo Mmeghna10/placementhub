@@ -43,6 +43,7 @@ public class OfferService {
     private final StudentRepository studentRepository;
     private final StudentService studentService;
     private final ApplicationMapper applicationMapper;
+    private final WaitlistService waitlistService;
     private final Clock clock;
 
     /**
@@ -138,8 +139,14 @@ public class OfferService {
         timelineRepository.save(entry);
     }
 
+    /**
+     * Frees the opening and the student's pending-offer place, then (phase 2) offers the
+     * opening to the job's waitlist and retries jobs that are waiting for this student.
+     */
     private void releaseSeatAndStudent(Application application) {
         jobRepository.releaseOfferSeat(application.getJob().getId());
         studentRepository.releasePendingOffer(application.getStudent().getId(), application.getId());
+        waitlistService.fillOpenings(application.getJob());
+        waitlistService.retryJobsWaitlisting(application.getStudent().getId());
     }
 }

@@ -31,6 +31,7 @@ public class RecruiterService {
     private final ApplicationMapper applicationMapper;
     private final InterviewSlotRepository slotRepository;
     private final OfferService offerService;
+    private final WaitlistService waitlistService;
     private final Clock clock;
 
     private Recruiter getCurrentRecruiter() {
@@ -117,6 +118,22 @@ public class RecruiterService {
         return jobMapper.toResponse(job);
     }
 
+    /** Offers every free opening of this job to the waitlist, in rank order. */
+    @Transactional
+    public List<ApplicationResponse> fillFromWaitlist(Long jobId) {
+        Job job = getOwnedJob(jobId, getCurrentRecruiter());
+        waitlistService.fillOpenings(job);
+        return applicationMapper.toRecruiterResponses(applicationRepository.findByJobIdOrderByAppliedAtAsc(job.getId()));
+    }
+
+    /** Saves a new waitlist order (application ids, next in line first). */
+    @Transactional
+    public List<ApplicationResponse> reorderWaitlist(Long jobId, List<Long> applicationIds) {
+        Job job = getOwnedJob(jobId, getCurrentRecruiter());
+        waitlistService.reorder(job, applicationIds);
+        return applicationMapper.toRecruiterResponses(applicationRepository.findByJobIdOrderByAppliedAtAsc(job.getId()));
+    }
+
     /**
      * Stops accepting applications. Existing applications and interview slots continue.
      * Like an edit, the UPDATE waits for applications already in progress to commit; any
@@ -196,6 +213,11 @@ public class RecruiterService {
         if (next == ApplicationStatus.OFFERED) {
             // Takes an opening and the student's one pending-offer place, or refuses.
             offerService.prepareOffer(application);
+        }
+        if (next == ApplicationStatus.WAITLISTED) {
+            waitlistService.addToWaitlist(application);
+        } else {
+            application.setWaitlistRank(null);
         }
 
         application.setStatus(next);

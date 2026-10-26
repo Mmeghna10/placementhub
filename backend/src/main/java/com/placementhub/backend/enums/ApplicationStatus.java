@@ -7,8 +7,10 @@ import java.util.Set;
  * Lifecycle of an application. Only the transitions listed here are allowed:
  *
  *   APPLIED ──► SHORTLISTED ──► INTERVIEW ──► OFFERED ──► ACCEPTED   (student)
- *      │             │              │            ├──────► DECLINED   (student)
- *      │             │              │            └──────► EXPIRED    (deadline passed)
+ *      │             │              │  ▲         ├──────► DECLINED   (student)
+ *      │             │              ▼  │         └──────► EXPIRED    (deadline passed)
+ *      │             │          WAITLISTED  (promoted to OFFERED by the recruiter, or
+ *      │             │              │        automatically when an opening frees up)
  *      └─────────────┴──────────────┴──────► REJECTED
  *
  * {@link #allowedNext()} lists the moves a recruiter may make. Once OFFERED, the decision
@@ -19,6 +21,7 @@ public enum ApplicationStatus {
     APPLIED,
     SHORTLISTED,
     INTERVIEW,
+    WAITLISTED,
     OFFERED,
     ACCEPTED,
     DECLINED,
@@ -30,7 +33,8 @@ public enum ApplicationStatus {
         return switch (this) {
             case APPLIED -> EnumSet.of(SHORTLISTED, REJECTED);
             case SHORTLISTED -> EnumSet.of(INTERVIEW, REJECTED);
-            case INTERVIEW -> EnumSet.of(OFFERED, REJECTED);
+            case INTERVIEW -> EnumSet.of(OFFERED, WAITLISTED, REJECTED);
+            case WAITLISTED -> EnumSet.of(OFFERED, REJECTED);
             case OFFERED, ACCEPTED, DECLINED, EXPIRED, REJECTED -> EnumSet.noneOf(ApplicationStatus.class);
         };
     }

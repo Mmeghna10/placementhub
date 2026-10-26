@@ -309,6 +309,130 @@ class OfferDeskIntegrationTest extends MySqlIntegrationTest {
         interviewSlotService.bookSlot(atC.getId(), afterBoth.getId());
     }
 
+    // ------------------------------------------------------------- waitlist (phase 2)
+
+    @Test
+    void aDeclinedOrExpiredOfferGoesToTheNextOnTheWaitlistAutomatically() {
+        Recruiter recruiter = recruiter();
+        Job job = job(recruiter, 1, 72);
+        Student first = student();
+        Application offer = offered(recruiter, job, first);
+        Application next = waitlisted(recruiter, job, student());
+        Application after = waitlisted(recruiter, job, student());
+
+        loginAs(first.getUser().getEmail());
+        offerService.decline(offer.getId());
+
+        assertThat(status(next)).isEqualTo("OFFERED");
+        assertThat(status(after)).isEqualTo("WAITLISTED");
+        assertThat(seats(job)).isEqualTo(List.of(1, 0));
+        assertThat(jdbc.queryForObject("SELECT remarks FROM application_timeline WHERE application_id = ? AND status = 'OFFERED'",
+                String.class, next.getId())).contains("automatically from the waitlist");
+
+        // The promoted candidate does not reply in time: the opening moves on again.
+        jdbc.update("UPDATE applications SET offer_expires_at = ? WHERE id = ?",
+                LocalDateTime.now(APP_ZONE).minusMinutes(1), next.getId());
+        assertThat(offerService.expire(next.getId())).isTrue();
+        assertThat(status(after)).isEqualTo("OFFERED");
+        assertThat(seats(job)).isEqualTo(List.of(1, 0));
+    }
+
+    @Test
+    void aBusyCandidateIsSkippedAndGetsTheOpeningOnceFree() {
+        Recruiter recruiter = recruiter();
+        Job job = job(recruiter, 1, 72);
+        Student first = student();
+        Application offer = offered(recruiter, job, first);
+        Student busy = student();
+        Application busyHere = waitlisted(recruiter, job, busy);
+        Recruiter other = recruiter();
+        Application busyElsewhere = offered(other, job(other, 1, 72), busy); // holds another offer
+
+        loginAs(first.getUser().getEmail());
+        offerService.decline(offer.getId());
+        assertThat(status(busyHere)).as("skipped: holds another offer").isEqualTo("WAITLISTED");
+        assertThat(seats(job)).isEqualTo(List.of(0, 0));
+
+        // The busy student declines the other offer and is now free: the waiting job retries.
+        loginAs(busy.getUser().getEmail());
+        offerService.decline(busyElsewhere.getId());
+        assertThat(status(busyHere)).isEqualTo("OFFERED");
+        assertThat(seats(job)).isEqualTo(List.of(1, 0));
+    }
+
+    @Test
+    void simultaneousDeclinesNeverPromoteACandidateTwice() throws Exception {
+        Recruiter recruiter = recruiter();
+        Job job = job(recruiter, 10, 72);
+        List<Student> holders = new ArrayList<>();
+        List<Application> offers = new ArrayList<>();
+        for (int i = 0; i < 10; i++) {
+            Student holder = student();
+            holders.add(holder);
+            offers.add(offered(recruiter, job, holder));
+        }
+        List<Application> waitlist = new ArrayList<>();
+        for (int i = 0; i < 3; i++) {
+            waitlist.add(waitlisted(recruiter, job, student()));
+        }
+
+        // All 10 offer holders decline at the same instant; only 3 candidates are waiting.
+        List<String> outcomes = race(10, i -> () -> {
+            loginAs(holders.get(i).getUser().getEmail());
+            offerService.decline(offers.get(i).getId());
+        });
+
+        assertThat(count(outcomes, "OK")).as("no decline fails because of a promotion race").isEqualTo(10);
+        assertThat(waitlist).allMatch(a -> status(a).equals("OFFERED"));
+        assertThat(seats(job)).isEqualTo(List.of(3, 0));
+        for (Application promoted : waitlist) {
+            assertThat(timelineCount(promoted, "OFFERED")).isEqualTo(1);
+        }
+    }
+
+    @Test
+    void manyFillClicksAtOnceOfferEachFreeOpeningOnce() throws Exception {
+        Recruiter recruiter = recruiter();
+        Job job = job(recruiter, 4, 72);
+        offered(recruiter, job, student());
+        List<Application> waitlist = new ArrayList<>();
+        for (int i = 0; i < 5; i++) {
+            waitlist.add(waitlisted(recruiter, job, student()));
+        }
+
+        // 3 free openings; 20 "fill from waitlist" clicks at the same instant.
+        List<String> outcomes = race(THREADS, i -> () -> {
+            loginAs(recruiter.getUser().getEmail());
+            recruiterService.fillFromWaitlist(job.getId());
+        });
+
+        assertThat(count(outcomes, "OK")).isEqualTo(THREADS);
+        assertThat(seats(job)).isEqualTo(List.of(4, 0));
+        // Rank order: the first three on the waitlist got the openings.
+        assertThat(waitlist.stream().map(this::status).toList())
+                .containsExactly("OFFERED", "OFFERED", "OFFERED", "WAITLISTED", "WAITLISTED");
+    }
+
+    @Test
+    void theRecruiterCanReorderTheWaitlistButNotFromAStaleList() {
+        Recruiter recruiter = recruiter();
+        Job job = job(recruiter, 1, 72);
+        Student first = student();
+        Application offer = offered(recruiter, job, first);
+        Application a = waitlisted(recruiter, job, student());
+        Application b = waitlisted(recruiter, job, student());
+
+        loginAs(recruiter.getUser().getEmail());
+        recruiterService.reorderWaitlist(job.getId(), List.of(b.getId(), a.getId()));
+        assertThatThrownBy(() -> recruiterService.reorderWaitlist(job.getId(), List.of(a.getId())))
+                .isInstanceOf(ApiException.class).extracting("code").isEqualTo("WAITLIST_CHANGED");
+
+        loginAs(first.getUser().getEmail());
+        offerService.decline(offer.getId());
+        assertThat(status(b)).as("b was moved to the front").isEqualTo("OFFERED");
+        assertThat(status(a)).isEqualTo("WAITLISTED");
+    }
+
     // ------------------------------------------------------------- race harness
 
     private List<String> race(int threads, Function<Integer, ThrowingRunnable> taskFactory) throws Exception {
@@ -403,6 +527,17 @@ class OfferDeskIntegrationTest extends MySqlIntegrationTest {
         recruiterService.updateApplicationStatus(application.getId(), offer());
         SecurityContextHolder.clearContext();
         return applicationRepository.findById(application.getId()).orElseThrow();
+    }
+
+    /** An interviewed application that the recruiter puts on the job's waitlist. */
+    private Application waitlisted(Recruiter recruiter, Job job, Student student) {
+        Application application = application(student, job, ApplicationStatus.INTERVIEW);
+        ApplicationStatusUpdateRequest request = new ApplicationStatusUpdateRequest();
+        request.setStatus("WAITLISTED");
+        loginAs(recruiter.getUser().getEmail());
+        recruiterService.updateApplicationStatus(application.getId(), request);
+        SecurityContextHolder.clearContext();
+        return application;
     }
 
     private void loginAs(String email) {

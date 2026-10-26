@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import { CheckCircle2, Clock, Gift, XCircle } from 'lucide-react';
+import { CheckCircle2, Clock, Gift, ListOrdered, XCircle } from 'lucide-react';
 import { acceptOffer, declineOffer } from '../api/studentApi';
 import { formatDateTime, timeLeft } from '../utils/jobFormat';
 
@@ -86,6 +86,22 @@ export default function OfferCard({ application, onChanged }) {
         </div>
         {error && <p role="alert" className="mt-4 text-sm text-brick font-medium">{error}</p>}
       </section>
+    );
+  }
+
+  if (status === 'WAITLISTED') {
+    return (
+      <p className="mb-6 flex items-start gap-3 rounded-xl border border-sky-200 bg-sky-50 px-5 py-4 text-sm text-sky-900">
+        <ListOrdered size={18} className="shrink-0 mt-0.5" />
+        <span>
+          {application.waitlistPosition ? (
+            <>You're <span className="font-semibold">#{application.waitlistPosition}</span> on the waitlist at {companyName}.</>
+          ) : (
+            <>You're on the waitlist at {companyName}.</>
+          )}{' '}
+          If an offer is declined or expires, the opening goes to the next person automatically, and you'll see the offer here.
+        </span>
+      </p>
     );
   }
 

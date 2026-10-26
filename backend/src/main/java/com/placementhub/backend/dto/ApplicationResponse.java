@@ -29,4 +29,8 @@ public class ApplicationResponse {
 
     /** While OFFERED: when the offer lapses if the student has not accepted or declined. */
     private LocalDateTime offerExpiresAt;
+
+    /** While WAITLISTED: the stored rank (recruiter view) and the live position (student view, 1 = next). */
+    private Integer waitlistRank;
+    private Integer waitlistPosition;
 }
