@@ -315,9 +315,9 @@ There are two layers, because the URL rule alone isn't enough:
 
 | Fact | Value | Source |
 |---|---|---|
-| Backend tests | 106 (unit, web security, MySQL integration, concurrency, API docs) | `./mvnw verify` in CI |
-| End-to-end tests | 17 Playwright tests (the 7 journeys + security headers) against the full Docker stack | `e2e/run-e2e.ps1`, CI |
-| Frontend tests | 64 component tests, ~59% line coverage | `npm test` |
+| Backend tests | 119 (unit, web security, MySQL integration, concurrency, API docs) | `./mvnw verify` in CI |
+| End-to-end tests | 19 Playwright tests (the 7 journeys, the offer flow, security headers) against the full Docker stack | `e2e/run-e2e.ps1`, CI |
+| Frontend tests | 70 component tests, ~59% line coverage | `npm test` |
 | Duplicates without the unique key | 12 from 20 simultaneous clicks | concurrency mutation check |
 | Search throughput (one laptop) | ~2,200–2,400 req/s at p95 40–45 ms | `docs/performance.md` |
 | Apply burst | 200 students × 3 clicks → exactly 200 applications, 0 errors | k6 |
@@ -342,3 +342,13 @@ There are two layers, because the URL rule alone isn't enough:
   - an allow-list entry can mask a real problem;
   - tests should not run on the one configuration the developer always uses;
   - the frontend's generic error message hid the real status code.
+
+## A second bug story: a lock that didn't protect
+
+**"What's the hardest bug you've fixed?"** Building the interview clash check for Offer Desk.
+- **The plan:** lock the student's row, then check their other bookings for an overlap. Two simultaneous overlapping bookings should then run one after another.
+- **The symptom:** the concurrency test still produced 2 bookings. The SQL log showed the lock was taken (`FOR UPDATE`) and the second request *did* wait.
+- **The cause:** JPA generated `FOR UPDATE OF students` for a query that joined `users`. The `users` row was read with a plain read, and in MySQL's REPEATABLE READ the first plain read fixes the transaction's snapshot. So the snapshot was taken before the wait, and after the wait the overlap check looked at old data.
+- **The fix:** a native `SELECT … FOR UPDATE` that locks both rows, run as the transaction's very first statement (`StudentRepository.lockByUserEmail`). The test now passes, and the lesson is in the code comment.
+- **The lesson:** "I took a lock" is not the same as "my later reads see fresh data". Isolation level and the moment a snapshot is taken matter, and only a real-database concurrency test showed it.
+

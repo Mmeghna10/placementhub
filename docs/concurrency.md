@@ -124,6 +124,44 @@ The status change and its timeline row commit together, so a refused update adds
 
 ---
 
+## Scenario E: offers (Offer Desk)
+
+**Rules:**
+- A job has `openings`; pending + accepted offers never exceed it.
+- A student holds at most **one pending offer**, and is placed (accepts) at most once.
+- An offer ends exactly once: the student accepts or declines it, or it expires at its deadline.
+
+**The races:**
+- A recruiting team offers more candidates than there are openings, at the same instant.
+- Several companies offer the same student at the same instant.
+- The student accepts in one tab and declines in another, or the expiry job runs at the same moment.
+
+**Fix (all in migration `V5__offer_desk.sql`):**
+1. **Seats:** `JobRepository.reserveOfferSeat` is an atomic conditional `UPDATE … SET offers_pending = offers_pending + 1 WHERE … offers_pending + offers_accepted < openings`, the same pattern as interview seats, with a `CHECK` constraint underneath. 0 rows → `409 NO_OPENINGS_LEFT`.
+2. **One pending offer:** `StudentRepository.claimPendingOffer` sets `pending_offer_application_id` only `WHERE … IS NULL AND placed_application_id IS NULL`. 0 rows → `409 STUDENT_HAS_PENDING_OFFER` (or `422 STUDENT_ALREADY_PLACED`). The seat taken in step 1 rolls back with it.
+3. **One outcome:** `OfferService` changes the application **first** and flushes, so the application's `@Version` picks the single winner before any counter is touched. The loser rolls back as a whole.
+4. **Expiry:** `OfferExpiryJob` runs every minute and expires each overdue offer in its own short transaction. Because of step 3 it is safe to run on several servers at once, **without a distributed lock**.
+
+**Evidence** (`OfferDeskIntegrationTest`, 20 threads, real MySQL):
+- `openingsAreNeverOverOfferedWhenRecruitersOfferAtTheSameInstant`: 3 openings, 20 offers → exactly 3 offers, 17 × `NO_OPENINGS_LEFT`, counters 3/0.
+- `aStudentHoldsOnlyOnePendingOfferEvenWhenCompaniesOfferTogether`: 20 companies → 1 offer; the other 19 jobs keep their seats.
+- `anOfferIsAcceptedExactlyOnceEvenWhenTheStudentDoubleClicks`, `acceptAndDeclineAtTheSameInstantEndTheOfferExactlyOnce`, `expiryRacingADeclineEndsTheOfferOnceAndFreesTheOpening`: exactly one outcome, one timeline row, and counters that match it.
+
+---
+
+## Scenario F: overlapping interviews
+
+**Rule:** a student cannot be in two interviews at once, even with different companies.
+
+**Fix:** `bookSlot` locks the student's row, then checks the student's other bookings for an overlap (`409 INTERVIEW_CLASH`). One student's bookings therefore run one after another.
+
+**A subtle bug the test found:** the first version took the lock with JPA's `PESSIMISTIC_WRITE`, and two overlapping bookings still both succeeded.
+- **Why:** Hibernate generated `SELECT … FROM students JOIN users … FOR UPDATE OF students`. That locks the students row, but reads the joined `users` row with a plain, non-locking read. In MySQL's `REPEATABLE READ`, the first plain read fixes the transaction's snapshot, so the snapshot was taken *before* waiting for the lock. After the wait, the overlap check looked at the old snapshot and could not see the booking the other request had just committed.
+- **Fix:** `StudentRepository.lockByUserEmail` is native SQL with a plain `FOR UPDATE` (it locks both rows, with no plain read), and it is the transaction's first statement.
+- **Evidence:** `aStudentIsNeverBookedIntoTwoOverlappingInterviews`, two tabs booking two companies' overlapping slots → exactly 1 booking, no seat leaked. It failed (2 bookings) before the fix.
+
+---
+
 ## Running the tests
 
 ```powershell

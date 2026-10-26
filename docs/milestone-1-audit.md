@@ -829,6 +829,18 @@ Security headers (2026-10-25):
 - **Tests:** two new E2E tests check the headers and that no page (charts and fonts included) violates the policy. Mutation-checked: removing Google Fonts from the policy makes the test fail.
 - **Totals:** 106 backend, 64 frontend, 17 end-to-end tests.
 
+Offer Desk, phase 1 (2026-10-26). Design agreed with the owner: offers with openings and deadlines, a ranked waitlist that refills seats, and campus placement tiers, in four phases.
+- **Migration V5:** openings, offer deadline and seat counters on jobs; `offer_expires_at`; one pending offer and one placement per student; statuses `ACCEPTED`, `DECLINED`, `EXPIRED`.
+  - **Agreed data change:** existing `OFFERED` applications become `ACCEPTED`. Tested on a scratch database with old-style data (two offers for one student, more offers than one opening): counters rebuilt, openings raised, latest offer marks the placement.
+- **Offers:** a recruiter's offer takes an opening and the student's one pending-offer place; the student accepts or declines before the deadline; a placed student cannot apply again.
+- **First background job:** `OfferExpiryJob` expires overdue offers every minute. It is safe on several servers without a distributed lock.
+- **Interview clash check,** plus a fix for a subtle locking bug the new test found (JPA's `FOR UPDATE OF` fixing the MySQL snapshot before the lock wait; see concurrency.md, Scenario F).
+- **UI:** an offer card with countdown and accept/decline; an offer banner on the student dashboard; openings and deadline on the job form; seat meters for recruiters.
+- **Test setup fix:** the test connection pool now opens all 40 connections up front. Otherwise 20 simultaneous threads timed out while the pool was still growing on a slow machine.
+- **Tests:** 9 new MySQL concurrency tests; 6 new frontend tests (the double-click test mutation-checked); 2 new E2E tests.
+- **Totals:** 119 backend, 70 frontend, 19 end-to-end.
+- **Remaining phases:** 2 (waitlist and automatic refill), 3 (placement tiers and rules), 4 (dashboards).
+
 **Deliberately not built** (no requirement yet; see §8 and the README): Redis, background jobs, refresh tokens.
 
 **Known limitations (current):**
