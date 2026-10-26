@@ -63,7 +63,8 @@ export default function OfferCard({ application, onChanged }) {
                 {left && <span className="text-amber-700 font-medium">· {left}</span>}
               </p>
               <p className="mt-2 text-xs text-slate">
-                Accepting places you with this company. If you don't reply in time, the offer expires and the opening goes to someone else.
+                Accepting places you with this company. If you have already accepted a lower-tier offer, accepting this one
+                releases it. If you don't reply in time, the offer expires and the opening goes to someone else.
               </p>
             </div>
           </div>
@@ -115,6 +116,16 @@ export default function OfferCard({ application, onChanged }) {
       icon: XCircle,
       style: 'border-ink/10 bg-white text-slate',
       text: 'You declined this offer.',
+    },
+    WITHDRAWN: {
+      icon: XCircle,
+      style: 'border-ink/10 bg-white text-slate',
+      text: 'Withdrawn automatically: you accepted another offer, and the placement rules close this application.',
+    },
+    RELEASED: {
+      icon: CheckCircle2,
+      style: 'border-violet-200 bg-violet-50 text-violet-800',
+      text: `You gave up this placement at ${companyName} for a higher-tier offer.`,
     },
     EXPIRED: {
       icon: Clock,

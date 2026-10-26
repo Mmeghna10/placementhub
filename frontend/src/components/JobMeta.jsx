@@ -1,5 +1,6 @@
 import { BriefcaseBusiness, CalendarClock, IndianRupee, MapPin } from 'lucide-react';
 import { deadlineHint, formatDate, formatJobType, formatSalary } from '../utils/jobFormat';
+import TierBadge from './TierBadge';
 
 function Chip({ icon: Icon, children, className = 'bg-paper text-slate' }) {
   return (
@@ -16,6 +17,7 @@ export default function JobMeta({ job, showDeadlineHint = true }) {
   const hint = showDeadlineHint && job.acceptingApplications !== false ? deadlineHint(job.applicationDeadline) : null;
   return (
     <div className="flex flex-wrap items-center gap-2">
+      {job.tier && job.tier !== 'REGULAR' && <TierBadge tier={job.tier} />}
       {job.location && <Chip icon={MapPin}>{job.location}</Chip>}
       {job.jobType && <Chip icon={BriefcaseBusiness}>{formatJobType(job.jobType)}</Chip>}
       {salary && <Chip icon={IndianRupee}>{salary.replace('₹', '')}</Chip>}

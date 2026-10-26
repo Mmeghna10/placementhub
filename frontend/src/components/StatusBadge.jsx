@@ -5,6 +5,8 @@ const statusStyles = {
   OFFERED: { pill: 'bg-emerald-50 text-emerald-700 ring-emerald-200', dot: 'bg-emerald-500' },
   REJECTED: { pill: 'bg-brick/10 text-brick ring-brick/20', dot: 'bg-brick' },
   WAITLISTED: { pill: 'bg-sky-50 text-sky-700 ring-sky-200', dot: 'bg-sky-500' },
+  WITHDRAWN: { pill: 'bg-ink/5 text-slate ring-ink/10', dot: 'bg-slate/60' },
+  RELEASED: { pill: 'bg-violet-50 text-violet-700 ring-violet-200', dot: 'bg-violet-500' },
   ACCEPTED: { pill: 'bg-emerald-600 text-white ring-emerald-600', dot: 'bg-white' },
   DECLINED: { pill: 'bg-ink/5 text-slate ring-ink/10', dot: 'bg-slate' },
   EXPIRED: { pill: 'bg-amber-50 text-amber-800 ring-amber-200', dot: 'bg-amber-500' },

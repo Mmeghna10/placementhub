@@ -66,7 +66,10 @@ public interface JobRepository extends JpaRepository<Job, Long> {
               and (:eligibleOnly = false or (
                     (j.minCgpa is null or (:cgpa is not null and j.minCgpa <= :cgpa))
                     and (j.eligibleBranches is null or trim(j.eligibleBranches) = ''
-                         or (:branch is not null and lower(j.eligibleBranches) like :branch))))
+                         or (:branch is not null and lower(j.eligibleBranches) like :branch))
+                    and (case j.tier when com.placementhub.backend.enums.JobTier.REGULAR then 1
+                                     when com.placementhub.backend.enums.JobTier.DREAM then 2
+                                     else 3 end) >= :minTierRank))
             """,
             countQuery = """
             select count(j) from Job j
@@ -81,7 +84,10 @@ public interface JobRepository extends JpaRepository<Job, Long> {
               and (:eligibleOnly = false or (
                     (j.minCgpa is null or (:cgpa is not null and j.minCgpa <= :cgpa))
                     and (j.eligibleBranches is null or trim(j.eligibleBranches) = ''
-                         or (:branch is not null and lower(j.eligibleBranches) like :branch))))
+                         or (:branch is not null and lower(j.eligibleBranches) like :branch))
+                    and (case j.tier when com.placementhub.backend.enums.JobTier.REGULAR then 1
+                                     when com.placementhub.backend.enums.JobTier.DREAM then 2
+                                     else 3 end) >= :minTierRank))
             """)
     Page<Job> searchOpenJobs(@Param("status") JobStatus status,
                              @Param("today") LocalDate today,
@@ -91,6 +97,7 @@ public interface JobRepository extends JpaRepository<Job, Long> {
                              @Param("eligibleOnly") boolean eligibleOnly,
                              @Param("cgpa") java.math.BigDecimal cgpa,
                              @Param("branch") String branch,
+                             @Param("minTierRank") int minTierRank,
                              Pageable pageable);
 
     /**
@@ -128,4 +135,9 @@ public interface JobRepository extends JpaRepository<Job, Long> {
     @Modifying(flushAutomatically = true)
     @Query("update Job j set j.offersPending = j.offersPending - 1 where j.id = :id and j.offersPending > 0")
     int releaseOfferSeat(@Param("id") Long jobId);
+
+    /** An accepted offer was released (the student took a higher-tier job): the opening is free again. */
+    @Modifying(flushAutomatically = true)
+    @Query("update Job j set j.offersAccepted = j.offersAccepted - 1 where j.id = :id and j.offersAccepted > 0")
+    int releaseAcceptedSeat(@Param("id") Long jobId);
 }

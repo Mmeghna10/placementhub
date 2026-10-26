@@ -40,6 +40,7 @@ public class StudentService {
     private final ApplicationMapper applicationMapper;
     private final EligibilityPolicy eligibilityPolicy;
     private final Clock clock;
+    private final PlacementRules placementRules;
 
     private Student getCurrentStudent() {
         String email = SecurityUtils.getCurrentUserEmail();
@@ -115,7 +116,8 @@ public class StudentService {
 
         Page<Job> jobs = jobRepository.searchOpenJobs(JobStatus.APPROVED, LocalDate.now(clock),
                 likePattern(text), blankToNull(jobType), likePattern(location),
-                eligibleOnly, student == null ? null : student.getCgpa(), branch, pageable);
+                eligibleOnly, student == null ? null : student.getCgpa(), branch,
+                student == null ? 0 : placementRules.minimumTierRankFor(student), pageable);
 
         return PageResponse.from(jobs.map(job -> {
             JobResponse response = jobMapper.toResponse(job);
@@ -178,13 +180,12 @@ public class StudentService {
     public ApplicationResponse applyToJob(Long jobId) {
         Student student = getCurrentStudent();
 
-        if (student.getPlacedApplicationId() != null) {
-            throw new BusinessRuleException("ALREADY_PLACED",
-                    "You have accepted an offer, so you can't apply to more jobs.");
-        }
-
         Job job = jobRepository.findByIdForApplication(jobId)
                 .orElseThrow(() -> new NotFoundException("Job not found"));
+        // Phase 3: a placed student may only apply to higher tiers, up to the maximum.
+        placementRules.refusalReason(student, job).ifPresent(reason -> {
+            throw new BusinessRuleException("ALREADY_PLACED", reason);
+        });
 
         if (job.getStatus() != JobStatus.APPROVED) {
             throw new BusinessRuleException("JOB_NOT_OPEN", "This job is not accepting applications");

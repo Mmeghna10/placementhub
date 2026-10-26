@@ -10,6 +10,8 @@ public class ApplicationResponse {
     private Long jobId;
     private String jobTitle;
     private String companyName;
+    /** The job's placement tier. */
+    private String jobTier;
     private String status;
     private LocalDateTime appliedAt;
     private LocalDateTime updatedAt;

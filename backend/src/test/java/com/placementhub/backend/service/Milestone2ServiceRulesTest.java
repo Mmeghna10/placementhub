@@ -212,6 +212,7 @@ class Milestone2ServiceRulesTest {
         @Mock ApplicationMapper applicationMapper;
         @Mock EligibilityPolicy eligibilityPolicy;
         @Mock Clock clock;
+        @Mock PlacementRules placementRules;
         @InjectMocks StudentService studentService;
 
         @BeforeEach

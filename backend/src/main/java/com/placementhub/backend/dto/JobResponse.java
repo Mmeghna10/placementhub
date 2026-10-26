@@ -35,4 +35,7 @@ public class JobResponse {
     /** Offers waiting for the student's reply, and offers accepted. */
     private Integer offersPending;
     private Integer offersAccepted;
+
+    /** Placement tier: REGULAR, DREAM or SUPER_DREAM. */
+    private String tier;
 }

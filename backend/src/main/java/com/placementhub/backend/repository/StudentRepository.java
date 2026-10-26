@@ -40,17 +40,29 @@ public interface StudentRepository extends JpaRepository<Student, Long> {
 
     // ---- One pending offer and one placement per student, each claimed atomically.
 
-    /** Gives the student this pending offer if they hold none and are not placed. 0 = refused. */
+    /**
+     * Gives the student this pending offer if they hold none and the placement rules allow
+     * the job: its tier rank is above their current placement and they have accepted fewer
+     * than the maximum. One atomic statement, so it cannot race an acceptance. 0 = refused.
+     */
     @Modifying(flushAutomatically = true)
     @Query("update Student s set s.pendingOfferApplicationId = :applicationId "
-            + "where s.id = :id and s.pendingOfferApplicationId is null and s.placedApplicationId is null")
-    int claimPendingOffer(@Param("id") Long studentId, @Param("applicationId") Long applicationId);
+            + "where s.id = :id and s.pendingOfferApplicationId is null "
+            + "and s.placedTier < :tierRank and s.acceptedCount < :maxAccepted")
+    int claimPendingOffer(@Param("id") Long studentId, @Param("applicationId") Long applicationId,
+                          @Param("tierRank") int tierRank, @Param("maxAccepted") int maxAccepted);
 
-    /** The pending offer was accepted: the student is now placed by it. 0 = it was not their pending offer. */
+    /**
+     * The pending offer was accepted: it becomes the student's placement (an upgrade if
+     * they were placed before). Re-checks the rules in the same statement. 0 = refused.
+     */
     @Modifying(flushAutomatically = true)
-    @Query("update Student s set s.placedApplicationId = :applicationId, s.pendingOfferApplicationId = null "
-            + "where s.id = :id and s.pendingOfferApplicationId = :applicationId and s.placedApplicationId is null")
-    int placeWithPendingOffer(@Param("id") Long studentId, @Param("applicationId") Long applicationId);
+    @Query("update Student s set s.placedApplicationId = :applicationId, s.placedTier = :tierRank, "
+            + "s.acceptedCount = s.acceptedCount + 1, s.pendingOfferApplicationId = null "
+            + "where s.id = :id and s.pendingOfferApplicationId = :applicationId "
+            + "and s.placedTier < :tierRank and s.acceptedCount < :maxAccepted")
+    int placeWithPendingOffer(@Param("id") Long studentId, @Param("applicationId") Long applicationId,
+                              @Param("tierRank") int tierRank, @Param("maxAccepted") int maxAccepted);
 
     /** The pending offer was declined or expired. */
     @Modifying(flushAutomatically = true)

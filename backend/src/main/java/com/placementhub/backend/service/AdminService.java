@@ -86,6 +86,9 @@ public class AdminService {
         }
 
         job.setStatus(JobStatus.valueOf(request.getStatus()));
+        if (request.getTier() != null && job.getStatus() == JobStatus.APPROVED) {
+            job.setTier(com.placementhub.backend.enums.JobTier.valueOf(request.getTier()));
+        }
         // @Version: if a recruiter edited the job after it was loaded, this fails with 409.
         job = jobRepository.saveAndFlush(job);
 

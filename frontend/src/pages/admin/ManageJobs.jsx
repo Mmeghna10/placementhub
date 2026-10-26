@@ -4,6 +4,8 @@ import DashboardLayout from '../../components/DashboardLayout';
 import LoadingState from '../../components/LoadingState';
 import EmptyState from '../../components/EmptyState';
 import StatusBadge from '../../components/StatusBadge';
+import TierBadge from '../../components/TierBadge';
+import { TIERS } from '../../utils/tiers';
 import Pagination from '../../components/Pagination';
 import { getAllJobs, getPendingJobs, approveJob } from '../../api/adminApi';
 
@@ -45,11 +47,14 @@ export default function ManageJobs() {
     setPage(next);
   };
 
+  // Tier chosen per pending job before approving (default Regular).
+  const [tiers, setTiers] = useState({});
+
   const handleDecision = async (jobId, status) => {
     setUpdatingId(jobId);
     setError('');
     try {
-      await approveJob(jobId, status);
+      await approveJob(jobId, status, status === 'APPROVED' ? tiers[jobId] ?? 'REGULAR' : undefined);
       setReloadKey((k) => k + 1);
     } catch (err) {
       setError(err.response?.data?.error || 'Could not update this job');
@@ -82,8 +87,17 @@ export default function ManageJobs() {
 
                 <div className="flex items-center gap-3">
                   <StatusBadge status={job.status} />
+                  {job.status !== 'PENDING' && job.status !== 'REJECTED' && <TierBadge tier={job.tier} />}
                   {job.status === 'PENDING' && (
                     <>
+                      <select
+                        aria-label={`Tier for ${job.title}`}
+                        value={tiers[job.id] ?? 'REGULAR'}
+                        onChange={(e) => setTiers({ ...tiers, [job.id]: e.target.value })}
+                        className="text-xs border border-ink/15 rounded-lg px-2 py-1.5 bg-white focus:outline-none focus:ring-2 focus:ring-teal/40"
+                      >
+                        {TIERS.map((t) => <option key={t.value} value={t.value}>{t.label}</option>)}
+                      </select>
                       <button
                         onClick={() => handleDecision(job.id, 'APPROVED')}
                         disabled={updatingId === job.id}

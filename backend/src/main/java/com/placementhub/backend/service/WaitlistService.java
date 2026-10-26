@@ -40,6 +40,7 @@ public class WaitlistService {
     private final ApplicationTimelineRepository timelineRepository;
     private final JobRepository jobRepository;
     private final StudentRepository studentRepository;
+    private final PlacementRules placementRules;
     private final Clock clock;
 
     /** Offers this job's free openings to waitlisted candidates in rank order. Returns how many were offered. */
@@ -96,8 +97,9 @@ public class WaitlistService {
     /** One promotion attempt. False if the candidate is busy, placed, or was just promoted elsewhere. */
     private boolean offerTo(Job job, Application candidate) {
         Long studentId = candidate.getStudent().getId();
-        if (studentRepository.claimPendingOffer(studentId, candidate.getId()) == 0) {
-            return false; // holding another offer, or already placed
+        if (studentRepository.claimPendingOffer(studentId, candidate.getId(), job.getTier().rank(),
+                placementRules.maxAcceptedOffers()) == 0) {
+            return false; // holding another offer, or the placement rules don't allow this job
         }
         LocalDateTime now = LocalDateTime.now(clock);
         if (applicationRepository.promoteFromWaitlist(candidate.getId(), now.plusHours(job.getOfferDeadlineHours()), now) == 0) {

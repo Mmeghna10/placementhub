@@ -26,6 +26,7 @@ import ManageStudents from './pages/admin/ManageStudents';
 import ManageRecruiters from './pages/admin/ManageRecruiters';
 import ManageJobs from './pages/admin/ManageJobs';
 import Analytics from './pages/admin/Analytics';
+import PlacementRules from './pages/admin/PlacementRules';
 
 import RecruiterProfile from './pages/recruiter/RecruiterProfile';
 import AdminProfile from './pages/admin/AdminProfile';
@@ -87,6 +88,9 @@ function App() {
           } />
           <Route path="/admin/jobs/pending" element={
             <ProtectedRoute allowedRole="ADMIN"><ManageJobs /></ProtectedRoute>
+          } />
+          <Route path="/admin/placement-rules" element={
+            <ProtectedRoute allowedRole="ADMIN"><PlacementRules /></ProtectedRoute>
           } />
           <Route path="/admin/analytics" element={
             <ProtectedRoute allowedRole="ADMIN"><Analytics /></ProtectedRoute>

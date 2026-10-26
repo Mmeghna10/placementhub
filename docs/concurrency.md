@@ -167,6 +167,27 @@ Any step returning 0 means "someone else got there first, try the next candidate
 
 ---
 
+### Phase 3: placement tiers and campus rules
+
+**Rules:** a placed student may only take an offer from a higher tier, and only while they have accepted fewer than the campus maximum (`placement_policy`). Accepting a higher-tier offer **releases** the earlier placement, and in-progress applications the rules now forbid are **withdrawn** (their interview bookings are cancelled).
+
+**Fix:**
+- **The rule lives in the atomic statements themselves.** `claimPendingOffer` and `placeWithPendingOffer` add `placed_tier < :tierRank AND accepted_count < :max` to their `WHERE`. An offer and an acceptance can therefore never slip past the rules, even when racing each other. `PlacementRules` only adds friendly messages and filters the "Recommended" search.
+- **Release cascade:** the released placement's opening is freed (`releaseAcceptedSeat`), and that job's waitlist is filled in the same transaction.
+- **Withdrawal never blocks acceptance.** It is a conditional `UPDATE … WHERE status IN (in-progress statuses)`, so a recruiter moving that application at the same moment can never make the student's acceptance fail.
+- **Refusal reasons don't come from a stale snapshot.** When an offer is refused, the reason ("already placed" or "has a pending offer") is worked out from the placement rules, not by re-reading the student row. A re-read could still show this transaction's old snapshot, without the offer that just won. The 20-company race test caught this during development.
+
+**Evidence:**
+- `anUpgradeReleasesTheEarlierPlacementAndItsOpeningRefillsFromTheWaitlist`: Regular placement released, the student is placed at Dream, and the Regular company's waitlisted candidate is offered automatically.
+- `aPlacedStudentCanOnlyTakeHigherTiersUpToTheMaximum`, `withoutUpgradesAPlacedStudentGetsNoFurtherOffers`.
+- `acceptingWithdrawsApplicationsTheRulesNowForbidAndCancelsTheirInterviews`: booking deleted, slot seat returned, higher tier left open.
+- `anAcceptanceNeverFailsBecauseARecruiterIsMovingAnApplicationItWithdraws`: 1 acceptance against 19 simultaneous recruiter updates → the acceptance succeeds, and the application ends up `WITHDRAWN` whatever the order.
+- **Mutation check:** with the tier condition removed from `claimPendingOffer`, two tests fail.
+
+**Known edge:** a student who applies to a lower-tier job at the exact moment they accept an offer may keep that new application. Applying does not lock the student row. It still cannot lead to an offer, because the atomic claim refuses it.
+
+---
+
 ## Scenario F: overlapping interviews
 
 **Rule:** a student cannot be in two interviews at once, even with different companies.

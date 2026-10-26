@@ -44,6 +44,9 @@ public class OfferService {
     private final StudentService studentService;
     private final ApplicationMapper applicationMapper;
     private final WaitlistService waitlistService;
+    private final PlacementRules placementRules;
+    private final com.placementhub.backend.repository.InterviewBookingRepository bookingRepository;
+    private final com.placementhub.backend.repository.InterviewSlotRepository slotRepository;
     private final Clock clock;
 
     /**
@@ -60,12 +63,16 @@ public class OfferService {
                     "All " + job.getOpenings() + " opening" + (job.getOpenings() == 1 ? " is" : "s are")
                             + " already filled or offered. Increase the openings to make another offer.");
         }
-        if (studentRepository.claimPendingOffer(student.getId(), application.getId()) == 0) {
-            // Rolled back with the seat above. Tell the recruiter which rule refused it.
-            Student current = studentRepository.findById(student.getId()).orElseThrow();
-            if (current.getPlacedApplicationId() != null) {
+        if (studentRepository.claimPendingOffer(student.getId(), application.getId(),
+                job.getTier().rank(), placementRules.maxAcceptedOffers()) == 0) {
+            // Rolled back with the seat above. Tell the recruiter which rule refused it. The
+            // placement rules decide from the student's placement; anything else means another
+            // offer is pending (re-reading the pointer here could show this transaction's old
+            // snapshot, without the offer that just won).
+            if (placementRules.refusalReason(student, job).isPresent()) {
                 throw new BusinessRuleException("STUDENT_ALREADY_PLACED",
-                        "This student has already accepted another offer.");
+                        "This student has already accepted an offer, and the placement rules don't allow them "
+                                + "to take this one (" + job.getTier().label() + ").");
             }
             throw new ConflictException("STUDENT_HAS_PENDING_OFFER",
                     "This student is deciding on another offer. You can make an offer once they reply or it expires.");
@@ -81,12 +88,27 @@ public class OfferService {
             throw new BusinessRuleException("OFFER_EXPIRED", "This offer expired on " + application.getOfferExpiresAt() + ".");
         }
 
+        Student student = studentRepository.findById(application.getStudent().getId()).orElseThrow();
+        Long previousPlacement = student.getPlacedApplicationId();
+        Job job = application.getJob();
+
         decide(application, ApplicationStatus.ACCEPTED, "Offer accepted", now);
-        if (studentRepository.placeWithPendingOffer(application.getStudent().getId(), application.getId()) == 0
-                || jobRepository.convertOfferSeat(application.getJob().getId()) == 0) {
+        int maxAccepted = placementRules.maxAcceptedOffers();
+        if (studentRepository.placeWithPendingOffer(student.getId(), application.getId(), job.getTier().rank(), maxAccepted) == 0) {
+            // The rules changed since the offer was made (e.g. upgrades switched off).
+            throw new BusinessRuleException("PLACEMENT_RULE",
+                    "The placement rules no longer allow you to accept this offer. Contact the placement cell.");
+        }
+        if (jobRepository.convertOfferSeat(job.getId()) == 0) {
             // Cannot happen while the invariants hold; refuse rather than corrupt the counters.
             throw new ConflictException("OFFER_NO_LONGER_OPEN", "This offer is no longer open. Refresh the page.");
         }
+
+        if (previousPlacement != null) {
+            releaseEarlierPlacement(previousPlacement, application, now);
+        }
+        withdrawApplicationsTheRulesNowForbid(student.getId(), application, job.getTier().rank(),
+                student.getAcceptedCount() + 1 >= maxAccepted, now);
         return applicationMapper.toResponse(application);
     }
 
@@ -115,6 +137,54 @@ public class OfferService {
         decide(application, ApplicationStatus.EXPIRED, "Offer expired: no reply before the deadline", now);
         releaseSeatAndStudent(application);
         return true;
+    }
+
+    /**
+     * An upgrade: the student gives up their earlier (lower-tier) placement. That company's
+     * opening is free again and goes to its waitlist, which is the cascade that keeps seats
+     * filled across companies.
+     */
+    private void releaseEarlierPlacement(Long previousApplicationId, Application upgrade, LocalDateTime now) {
+        Application previous = applicationRepository.findById(previousApplicationId).orElseThrow();
+        previous.setStatus(ApplicationStatus.RELEASED);
+        previous.setUpdatedAt(now);
+        applicationRepository.saveAndFlush(previous);
+
+        ApplicationTimeline entry = new ApplicationTimeline();
+        entry.setApplication(previous);
+        entry.setStatus(ApplicationStatus.RELEASED.name());
+        entry.setRemarks("Released: the student accepted a higher-tier offer from " + upgrade.getJob().getCompany().getName());
+        timelineRepository.save(entry);
+
+        jobRepository.releaseAcceptedSeat(previous.getJob().getId());
+        waitlistService.fillOpenings(previous.getJob());
+    }
+
+    /**
+     * Applications the student can no longer take (same or lower tier, or every one once
+     * they reached the maximum) are withdrawn, and their interview bookings cancelled, so
+     * recruiters don't interview someone who cannot join.
+     */
+    private void withdrawApplicationsTheRulesNowForbid(Long studentId, Application accepted, int placedRank,
+                                                     boolean reachedMax, LocalDateTime now) {
+        for (Application other : applicationRepository.findInProgressForStudent(studentId)) {
+            if (!reachedMax && other.getJob().getTier().rank() > placedRank) {
+                continue; // a higher tier stays open for a possible upgrade
+            }
+            if (applicationRepository.withdrawIfInProgress(other.getId(), now) == 0) {
+                continue; // changed at the same moment by its recruiter; nothing to withdraw
+            }
+            bookingRepository.findByApplicationId(other.getId()).ifPresent(booking -> {
+                slotRepository.releaseSeat(booking.getSlot().getId());
+                bookingRepository.delete(booking);
+            });
+            ApplicationTimeline entry = new ApplicationTimeline();
+            entry.setApplication(other);
+            entry.setStatus(ApplicationStatus.WITHDRAWN.name());
+            entry.setRemarks("Withdrawn automatically: the student accepted an offer from "
+                    + accepted.getJob().getCompany().getName() + " (placement rules)");
+            timelineRepository.save(entry);
+        }
     }
 
     private Application requirePendingOffer(Long applicationId) {

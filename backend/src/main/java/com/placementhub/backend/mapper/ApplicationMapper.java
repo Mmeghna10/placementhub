@@ -86,6 +86,7 @@ public class ApplicationMapper {
         response.setJobId(application.getJob().getId());
         response.setJobTitle(application.getJob().getTitle());
         response.setCompanyName(application.getJob().getCompany().getName());
+        response.setJobTier(application.getJob().getTier().name());
         response.setStatus(application.getStatus().name());
         response.setAppliedAt(application.getAppliedAt());
         response.setUpdatedAt(application.getUpdatedAt());
