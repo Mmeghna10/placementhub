@@ -24,4 +24,8 @@ public interface InterviewBookingRepository extends JpaRepository<InterviewBooki
     /** Who booked which slot, for the recruiter's slot list. */
     @EntityGraph(attributePaths = {"application", "application.student"})
     List<InterviewBooking> findBySlotIdIn(Collection<Long> slotIds);
+
+    /** A student's bookings with their slot and company, for the interview clash check. */
+    @EntityGraph(attributePaths = {"slot", "slot.job", "slot.job.company"})
+    List<InterviewBooking> findByApplicationStudentId(Long studentId);
 }

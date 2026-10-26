@@ -8,6 +8,7 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.EntityGraph;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Lock;
+import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
@@ -106,4 +107,25 @@ public interface JobRepository extends JpaRepository<Job, Long> {
     Optional<Job> findByIdForApplication(@Param("id") Long id);
 
     long countByStatus(JobStatus status);
+
+    // ---- Offer seats. Each is one atomic statement: MySQL locks the job row, re-checks the
+    // condition and changes the counter in one step, so two recruiters can never both take
+    // the last opening. A CHECK constraint (V5) is the safety net underneath.
+
+    /** Takes an opening for a new offer. Returns 0 when every opening is filled or offered. */
+    @Modifying(flushAutomatically = true)
+    @Query("update Job j set j.offersPending = j.offersPending + 1 "
+            + "where j.id = :id and j.offersPending + j.offersAccepted < j.openings")
+    int reserveOfferSeat(@Param("id") Long jobId);
+
+    /** A pending offer was accepted: the seat moves from pending to accepted. */
+    @Modifying(flushAutomatically = true)
+    @Query("update Job j set j.offersPending = j.offersPending - 1, j.offersAccepted = j.offersAccepted + 1 "
+            + "where j.id = :id and j.offersPending > 0")
+    int convertOfferSeat(@Param("id") Long jobId);
+
+    /** A pending offer was declined or expired: the seat is free again. */
+    @Modifying(flushAutomatically = true)
+    @Query("update Job j set j.offersPending = j.offersPending - 1 where j.id = :id and j.offersPending > 0")
+    int releaseOfferSeat(@Param("id") Long jobId);
 }

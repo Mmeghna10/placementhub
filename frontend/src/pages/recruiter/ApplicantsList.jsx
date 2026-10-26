@@ -7,7 +7,8 @@ import DashboardLayout from '../../components/DashboardLayout';
 import LoadingState from '../../components/LoadingState';
 import EmptyState from '../../components/EmptyState';
 import StatusBadge from '../../components/StatusBadge';
-import { getApplicantsForJob, updateApplicationStatus } from '../../api/recruiterApi';
+import { getApplicantsForJob, getMyJobs, updateApplicationStatus } from '../../api/recruiterApi';
+import SeatMeter from '../../components/SeatMeter';
 
 function ApplicantDetails({ applicant }) {
   if (!applicant) return null;
@@ -59,11 +60,16 @@ export default function ApplicantsList() {
   const [reloadKey, setReloadKey] = useState(0);
   const [updatingId, setUpdatingId] = useState(null);
   const [message, setMessage] = useState('');
+  const [job, setJob] = useState(null);
 
   useEffect(() => {
     getApplicantsForJob(jobId)
       .then((res) => setApplicants(res.data))
       .finally(() => setLoading(false));
+    // Title and openings for the header; seat counts change with every offer.
+    getMyJobs()
+      .then((res) => setJob(res.data.find((j) => String(j.id) === jobId) ?? null))
+      .catch(() => setJob(null));
   }, [jobId, reloadKey]);
 
   const handleStatusChange = async (app, newStatus) => {
@@ -96,6 +102,12 @@ export default function ApplicantsList() {
         <div>
           <h1 className="font-display text-[1.75rem] font-semibold text-ink tracking-tight">Applicants</h1>
           <div className="mt-2 h-1 w-10 rounded-full bg-brass/70" />
+          {job && (
+            <div className="mt-3 flex flex-wrap items-center gap-x-5 gap-y-2">
+              <p className="text-sm text-slate">{job.title}</p>
+              <SeatMeter job={job} />
+            </div>
+          )}
         </div>
         <Link
           to={`/recruiter/jobs/${jobId}/slots`}
@@ -121,6 +133,9 @@ export default function ApplicantsList() {
                   <p className="text-xs text-slate/80 mt-3 sm:pl-[3.75rem]">
                     Applied {formatDateTime(app.appliedAt)}
                     {app.interview && ` · Interview ${formatDateTime(app.interview.startsAt)}`}
+                    {app.status === 'OFFERED' && app.offerExpiresAt && (
+                      <span className="text-amber-700 font-medium">{` · Offer open until ${formatDateTime(app.offerExpiresAt)}`}</span>
+                    )}
                   </p>
                 </div>
 

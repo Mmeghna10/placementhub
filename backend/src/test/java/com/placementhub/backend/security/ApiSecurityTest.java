@@ -16,6 +16,7 @@ import com.placementhub.backend.exception.NotFoundException;
 import com.placementhub.backend.service.AdminService;
 import com.placementhub.backend.service.AuthService;
 import com.placementhub.backend.service.InterviewSlotService;
+import com.placementhub.backend.service.OfferService;
 import com.placementhub.backend.service.RecruiterService;
 import com.placementhub.backend.service.StudentService;
 import io.jsonwebtoken.Jwts;
@@ -80,6 +81,7 @@ class ApiSecurityTest {
     @MockitoBean RecruiterService recruiterService;
     @MockitoBean AdminService adminService;
     @MockitoBean InterviewSlotService interviewSlotService;
+    @MockitoBean OfferService offerService;
 
     @BeforeEach
     void users() {

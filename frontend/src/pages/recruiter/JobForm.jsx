@@ -15,6 +15,8 @@ const emptyForm = {
   minCgpa: '',
   eligibleBranches: '',
   applicationDeadline: '',
+  openings: 1,
+  offerDeadlineHours: 72,
 };
 
 export default function JobForm() {
@@ -159,6 +161,30 @@ export default function JobForm() {
             className="w-full px-3.5 py-2.5 bg-paper border border-ink/15 rounded-lg text-ink focus:outline-none focus:ring-2 focus:ring-teal/40 focus:border-teal transition"
           />
         </div>
+
+        <fieldset className="rounded-xl border border-ink/10 bg-paper/50 p-4">
+          <legend className="px-1 text-xs font-semibold text-slate uppercase tracking-wider">Offers</legend>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
+            <div>
+              <label htmlFor="job-openings" className="block text-xs font-medium text-slate uppercase tracking-wide mb-1.5">Openings</label>
+              <input
+                id="job-openings" type="number" min="1" max="500" required name="openings"
+                value={form.openings} onChange={handleChange}
+                className="w-full px-3.5 py-2.5 bg-white border border-ink/15 rounded-lg text-ink focus:outline-none focus:ring-2 focus:ring-teal/40 focus:border-teal transition"
+              />
+              <p className="mt-1 text-xs text-slate">How many people you will hire. You can't make more offers than this.</p>
+            </div>
+            <div>
+              <label htmlFor="job-offer-deadline" className="block text-xs font-medium text-slate uppercase tracking-wide mb-1.5">Offer deadline (hours)</label>
+              <input
+                id="job-offer-deadline" type="number" min="1" max="720" required name="offerDeadlineHours"
+                value={form.offerDeadlineHours} onChange={handleChange}
+                className="w-full px-3.5 py-2.5 bg-white border border-ink/15 rounded-lg text-ink focus:outline-none focus:ring-2 focus:ring-teal/40 focus:border-teal transition"
+              />
+              <p className="mt-1 text-xs text-slate">Time a student has to accept. Unanswered offers expire and free the opening.</p>
+            </div>
+          </div>
+        </fieldset>
 
         {error && <p className="text-sm text-brick font-medium">{error}</p>}
 

@@ -32,6 +32,10 @@ class Milestone4RulesTest {
                 "INTERVIEW,   REJECTED,    true",
                 "INTERVIEW,   SHORTLISTED, false",
                 "OFFERED,     REJECTED,    false",
+                "OFFERED,     ACCEPTED,    false",
+                "OFFERED,     DECLINED,    false",
+                "ACCEPTED,    DECLINED,    false",
+                "EXPIRED,     OFFERED,     false",
                 "REJECTED,    OFFERED,     false",
                 "REJECTED,    APPLIED,     false",
                 "APPLIED,     APPLIED,     false",
@@ -41,8 +45,14 @@ class Milestone4RulesTest {
         }
 
         @Test
-        void offeredAndRejectedAreFinal() {
-            assertThat(OFFERED.isFinal()).isTrue();
+        void decidedOffersAndRejectionsAreFinal() {
+            // An OFFERED application is waiting for the student: not final, but the
+            // recruiter has no moves left (accept/decline belong to the student).
+            assertThat(OFFERED.isFinal()).isFalse();
+            assertThat(OFFERED.allowedNext()).isEmpty();
+            assertThat(ACCEPTED.isFinal()).isTrue();
+            assertThat(DECLINED.isFinal()).isTrue();
+            assertThat(EXPIRED.isFinal()).isTrue();
             assertThat(REJECTED.isFinal()).isTrue();
             assertThat(APPLIED.isFinal()).isFalse();
         }

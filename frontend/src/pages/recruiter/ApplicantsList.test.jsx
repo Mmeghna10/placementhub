@@ -1,8 +1,8 @@
 import { screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import { describe, expect, it, vi } from 'vitest';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { RECRUITER, apiError, renderPage } from '../../test/render';
-import { getApplicantsForJob, updateApplicationStatus } from '../../api/recruiterApi';
+import { getApplicantsForJob, getMyJobs, updateApplicationStatus } from '../../api/recruiterApi';
 import ApplicantsList from './ApplicantsList';
 
 vi.mock('../../api/recruiterApi');
@@ -21,6 +21,10 @@ const open = () => renderPage(<ApplicantsList />, {
 });
 
 describe('Applicants page', () => {
+  beforeEach(() => {
+    getMyJobs.mockResolvedValue({ data: [{ id: 7, title: 'Java Developer', openings: 3, offersPending: 1, offersAccepted: 1 }] });
+  });
+
   it("shows each applicant's profile and links", async () => {
     getApplicantsForJob.mockResolvedValue({ data: [applicant(1, 'APPLIED', ['SHORTLISTED', 'REJECTED'])] });
     open();

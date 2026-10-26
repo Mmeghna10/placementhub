@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { daysUntil, deadlineHint, formatDate, formatJobType, formatSalary } from './jobFormat';
+import { daysUntil, deadlineHint, formatDate, formatJobType, formatSalary, timeLeft } from './jobFormat';
 
 describe('job display helpers', () => {
   it('shows yearly packages in lakhs and stipends per month', () => {
@@ -27,5 +27,13 @@ describe('job display helpers', () => {
     expect(formatJobType('FULL_TIME')).toBe('Full time');
     expect(formatJobType('INTERNSHIP')).toBe('Internship');
     expect(formatJobType(undefined)).toBeNull();
+  });
+
+  it('describes the time left on an offer', () => {
+    const now = new Date(2026, 9, 25, 12, 0);
+    expect(timeLeft(new Date(2026, 9, 27, 16, 0).toISOString(), now)).toBe('2 days 4 h left');
+    expect(timeLeft(new Date(2026, 9, 25, 17, 12).toISOString(), now)).toBe('5 h 12 min left');
+    expect(timeLeft(new Date(2026, 9, 25, 12, 45).toISOString(), now)).toBe('45 min left');
+    expect(timeLeft(new Date(2026, 9, 25, 11, 0).toISOString(), now)).toBeNull();
   });
 });

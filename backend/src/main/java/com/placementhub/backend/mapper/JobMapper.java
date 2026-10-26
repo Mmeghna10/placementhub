@@ -29,6 +29,10 @@ public class JobMapper {
         response.setCompanyId(job.getCompany().getId());
         response.setRecruiterId(job.getRecruiter().getId());
         response.setPostedAt(job.getPostedAt());
+        response.setOpenings(job.getOpenings());
+        response.setOfferDeadlineHours(job.getOfferDeadlineHours());
+        response.setOffersPending(job.getOffersPending());
+        response.setOffersAccepted(job.getOffersAccepted());
         return response;
     }
 }

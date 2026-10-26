@@ -91,6 +91,7 @@ public class ApplicationMapper {
         response.setUpdatedAt(application.getUpdatedAt());
         response.setTimeline(timeline);
         response.setVersion(application.getVersion());
+        response.setOfferExpiresAt(application.getOfferExpiresAt());
         response.setAllowedNextStatuses(application.getStatus().allowedNext().stream().map(Enum::name).toList());
         if (booking != null) {
             response.setInterview(toBooking(booking));

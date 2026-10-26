@@ -30,6 +30,7 @@ public class RecruiterService {
     private final JobMapper jobMapper;
     private final ApplicationMapper applicationMapper;
     private final InterviewSlotRepository slotRepository;
+    private final OfferService offerService;
     private final Clock clock;
 
     private Recruiter getCurrentRecruiter() {
@@ -192,6 +193,11 @@ public class RecruiterService {
                             + (current.isFinal() ? " (" + current + " is final)" : ""));
         }
 
+        if (next == ApplicationStatus.OFFERED) {
+            // Takes an opening and the student's one pending-offer place, or refuses.
+            offerService.prepareOffer(application);
+        }
+
         application.setStatus(next);
         application.setUpdatedAt(LocalDateTime.now(clock));
         application = applicationRepository.saveAndFlush(application);
@@ -231,6 +237,18 @@ public class RecruiterService {
         job.setMinCgpa(request.getMinCgpa());
         job.setEligibleBranches(request.getEligibleBranches());
         job.setApplicationDeadline(request.getApplicationDeadline());
+        if (request.getOpenings() != null) {
+            int committed = job.getOffersPending() + job.getOffersAccepted();
+            if (request.getOpenings() < committed) {
+                throw new BusinessRuleException("OPENINGS_BELOW_OFFERS",
+                        "This job already has " + committed + " offer" + (committed == 1 ? "" : "s")
+                                + " made or accepted, so it needs at least that many openings.");
+            }
+            job.setOpenings(request.getOpenings());
+        }
+        if (request.getOfferDeadlineHours() != null) {
+            job.setOfferDeadlineHours(request.getOfferDeadlineHours());
+        }
     }
 
     private RecruiterProfileResponse mapToProfileResponse(Recruiter recruiter) {

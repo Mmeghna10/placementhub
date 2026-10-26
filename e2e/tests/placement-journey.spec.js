@@ -1,6 +1,6 @@
 import { test, expect } from '@playwright/test';
 import {
-  PASSWORD, adminCredentials, api, createRecruiter, loginInBrowser, loginViaApi, postJob, uniqueEmail,
+  PASSWORD, adminCredentials, api, createRecruiter, loginInBrowser, loginViaApi, postJob, registerViaApi, uniqueEmail,
 } from './helpers.js';
 
 /**
@@ -161,5 +161,65 @@ test.describe.serial('Placement journey', () => {
     const { body } = await api(request, 'GET', `/api/students/applications/${applicationId}`, { token, expectStatus: 200 });
     expect(body.status).toBe('SHORTLISTED');
     expect(body.timeline.map((t) => t.status)).toEqual(['APPLIED', 'SHORTLISTED']);
+  });
+
+  test('recruiter makes an offer, the student accepts, and the opening is filled', async ({ page, request }) => {
+    // Recruiter: interview, then offer, through the real UI.
+    await loginInBrowser(page, recruiter);
+    await page.goto(`/recruiter/jobs/${eligibleJob.id}/applicants`);
+    const applicant = page.getByTestId('applicant').filter({ hasText: student.name });
+    await applicant.getByRole('combobox').selectOption('INTERVIEW');
+    await expect(applicant).toContainText('INTERVIEW');
+    await applicant.getByRole('combobox').selectOption('OFFERED');
+    await expect(applicant).toContainText('OFFERED');
+    await expect(applicant).toContainText('Offer open until');
+    await expect(page.getByText('0 of 1 filled')).toBeVisible();
+    await expect(page.getByText('1 pending')).toBeVisible();
+
+    // Student: the dashboard points to the offer; accept it on the application page.
+    await page.evaluate(() => localStorage.clear());
+    await loginInBrowser(page, student);
+    await page.getByRole('link', { name: /review offer/i }).click();
+    await expect(page.getByText(/you have an offer from/i)).toBeVisible();
+    await page.getByRole('button', { name: 'Accept offer' }).click();
+    await expect(page.getByText(/you're placed/i)).toBeVisible();
+
+    // The recruiter's only opening is now filled.
+    await page.evaluate(() => localStorage.clear());
+    await loginInBrowser(page, recruiter);
+    await page.goto(`/recruiter/jobs/${eligibleJob.id}/applicants`);
+    await expect(page.getByText('1 of 1 filled')).toBeVisible();
+
+    // A placed student cannot apply anywhere else.
+    const studentToken = await loginViaApi(request, student);
+    const again = await api(request, 'POST', `/api/students/jobs/${ineligibleJob.id}/apply`, { token: studentToken });
+    expect(again.status).toBe(422);
+    expect(again.body.code).toBe('ALREADY_PLACED');
+  });
+
+  test('an offer beyond the openings is refused', async ({ request }) => {
+    // A second candidate reaches the interview stage for the same (now full) job.
+    const other = await registerViaApi(request, 'STUDENT', 'Second Candidate');
+    await api(request, 'PUT', '/api/students/profile', {
+      token: other.token, data: { fullName: 'Second Candidate', branch: 'Computer Science', cgpa: 9.1 }, expectStatus: 200,
+    });
+    await api(request, 'POST', `/api/students/jobs/${eligibleJob.id}/apply`, { token: other.token, expectStatus: 201 });
+
+    const recruiterToken = await loginViaApi(request, recruiter);
+    const move = async (status) => {
+      const { body } = await api(request, 'GET', `/api/recruiter/jobs/${eligibleJob.id}/applications`, {
+        token: recruiterToken, expectStatus: 200,
+      });
+      const app = body.find((a) => a.applicant.fullName === 'Second Candidate');
+      return api(request, 'PUT', `/api/recruiter/applications/${app.id}/status`, {
+        token: recruiterToken, data: { status, version: app.version },
+      });
+    };
+    expect((await move('SHORTLISTED')).status).toBe(200);
+    expect((await move('INTERVIEW')).status).toBe(200);
+
+    const refused = await move('OFFERED');
+    expect(refused.status).toBe(409);
+    expect(refused.body.code).toBe('NO_OPENINGS_LEFT');
   });
 });
