@@ -238,7 +238,17 @@ public class StudentService {
     }
 
     public ApplicationResponse getApplicationDetails(Long applicationId) {
-        return applicationMapper.toResponse(requireOwnApplication(applicationId));
+        Application application = requireOwnApplication(applicationId);
+        ApplicationResponse response = applicationMapper.toResponse(application);
+        if (application.getStatus() == ApplicationStatus.WAITLISTED) {
+            response.setWaitlistPosition(waitlistPositionOf(application));
+        }
+        return response;
+    }
+
+    private int waitlistPositionOf(Application application) {
+        return (int) applicationRepository.countAheadOnWaitlist(
+                application.getJob().getId(), application.getWaitlistRank(), application.getId()) + 1;
     }
 
     /** The current student's application, or 404 (also for other students' applications). */

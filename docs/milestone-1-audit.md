@@ -841,6 +841,14 @@ Offer Desk, phase 1 (2026-10-26). Design agreed with the owner: offers with open
 - **Totals:** 119 backend, 70 frontend, 19 end-to-end.
 - **Remaining phases:** 2 (waitlist and automatic refill), 3 (placement tiers and rules), 4 (dashboards).
 
+Offer Desk, phase 2 (2026-10-26): a ranked waitlist that refills openings.
+- **Migration V6:** `waitlist_rank` and the `WAITLISTED` status (additive).
+- **Waitlist:** the recruiter waitlists interviewed candidates and reorders them (a stale order gets `409 WAITLIST_CHANGED`).
+- **Automatic refill:** a declined or expired offer goes to the next free candidate in the same transaction. Busy candidates are skipped and retried when free. A "fill open openings" action covers raised openings. Promotion is a chain of conditional UPDATEs, so it never promotes twice and never fails the decline that triggered it.
+- **UI:** a waitlist panel (order, move up/down, fill) for recruiters; "#N on the waitlist" for students.
+- **Bug found by the E2E test:** the status-change request validation did not list `WAITLISTED`, so the recruiter's dropdown got a 400. The service tests missed it because they bypass HTTP. Now covered by a web-layer test over every status a recruiter can set (mutation-checked).
+- **Totals:** 130 backend, 75 frontend, 20 end-to-end.
+
 **Deliberately not built** (no requirement yet; see §8 and the README): Redis, background jobs, refresh tokens.
 
 **Known limitations (current):**

@@ -186,4 +186,12 @@ describe('Application page', () => {
       expect(screen.queryByRole('button', { name: 'Accept offer' })).not.toBeInTheDocument();
     });
   });
+
+  it('shows the waitlist position', async () => {
+    getApplicationDetails.mockResolvedValue({ data: application({ status: 'WAITLISTED', waitlistPosition: 2 }) });
+    open();
+
+    expect(await screen.findByText('#2')).toBeInTheDocument();
+    expect(screen.getByText(/on the waitlist at/i)).toHaveTextContent(/next person automatically/i);
+  });
 });

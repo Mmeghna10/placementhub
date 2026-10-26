@@ -100,6 +100,7 @@ class Milestone2ServiceRulesTest {
         @Mock ApplicationMapper applicationMapper;
         @Mock InterviewSlotRepository slotRepository;
         @Mock OfferService offerService;
+        @Mock WaitlistService waitlistService;
         @Mock Clock clock;
         @InjectMocks RecruiterService recruiterService;
 

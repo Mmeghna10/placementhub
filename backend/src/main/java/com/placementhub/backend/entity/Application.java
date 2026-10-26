@@ -47,4 +47,8 @@ public class Application {
     /** While OFFERED: when the offer lapses if the student has not replied. */
     @Column(name = "offer_expires_at")
     private LocalDateTime offerExpiresAt;
+
+    /** While WAITLISTED: position in the job's waitlist (1 = next in line). */
+    @Column(name = "waitlist_rank")
+    private Integer waitlistRank;
 }

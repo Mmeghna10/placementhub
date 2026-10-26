@@ -297,6 +297,23 @@ class ApiSecurityTest {
         }
 
         @Test
+        void everyStatusARecruiterCanSetPassesValidation() throws Exception {
+            // Regression: WAITLISTED (Offer Desk phase 2) was missing from the request
+            // validation, so the recruiter's dropdown got a 400 although the service allowed it.
+            when(recruiterService.updateApplicationStatus(org.mockito.ArgumentMatchers.eq(9L), org.mockito.ArgumentMatchers.any()))
+                    .thenReturn(new com.placementhub.backend.dto.ApplicationResponse());
+            for (com.placementhub.backend.enums.ApplicationStatus from : com.placementhub.backend.enums.ApplicationStatus.values()) {
+                for (com.placementhub.backend.enums.ApplicationStatus next : from.allowedNext()) {
+                    mockMvc.perform(put("/api/recruiter/applications/9/status")
+                                    .header("Authorization", bearer(RECRUITER, "RECRUITER"))
+                                    .contentType(MediaType.APPLICATION_JSON)
+                                    .content("{\"status\":\"" + next + "\",\"version\":0}"))
+                            .andExpect(status().isOk());
+                }
+            }
+        }
+
+        @Test
         void studentCannotCreateSlots() throws Exception {
             mockMvc.perform(post("/api/recruiter/jobs/1/slots")
                             .header("Authorization", bearer(STUDENT, "STUDENT"))

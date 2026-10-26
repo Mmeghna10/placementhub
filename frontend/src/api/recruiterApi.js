@@ -9,6 +9,9 @@ export const deleteJob = (id) => axiosInstance.delete(`/api/recruiter/jobs/${id}
 export const getApplicantsForJob = (jobId) => axiosInstance.get(`/api/recruiter/jobs/${jobId}/applications`);
 export const updateApplicationStatus = (id, data) => axiosInstance.put(`/api/recruiter/applications/${id}/status`, data);
 export const closeJob = (id) => axiosInstance.post(`/api/recruiter/jobs/${id}/close`);
+// Waitlist: offer free openings in rank order; save a new order (ids, next in line first)
+export const fillFromWaitlist = (jobId) => axiosInstance.post(`/api/recruiter/jobs/${jobId}/waitlist/fill`);
+export const reorderWaitlist = (jobId, applicationIds) => axiosInstance.put(`/api/recruiter/jobs/${jobId}/waitlist`, { applicationIds });
 
 // Interview slots for one of the recruiter's jobs
 export const getInterviewSlots = (jobId) => axiosInstance.get(`/api/recruiter/jobs/${jobId}/slots`);

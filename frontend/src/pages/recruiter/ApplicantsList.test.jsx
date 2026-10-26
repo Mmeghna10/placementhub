@@ -2,7 +2,7 @@ import { screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { RECRUITER, apiError, renderPage } from '../../test/render';
-import { getApplicantsForJob, getMyJobs, updateApplicationStatus } from '../../api/recruiterApi';
+import { fillFromWaitlist, getApplicantsForJob, getMyJobs, reorderWaitlist, updateApplicationStatus } from '../../api/recruiterApi';
 import ApplicantsList from './ApplicantsList';
 
 vi.mock('../../api/recruiterApi');
@@ -80,5 +80,53 @@ describe('Applicants page', () => {
     getApplicantsForJob.mockResolvedValue({ data: [] });
     open();
     expect(await screen.findByText('No applicants yet')).toBeInTheDocument();
+  });
+
+  describe('waitlist', () => {
+    const waiting = (id, rank) => applicant(id, 'WAITLISTED', ['OFFERED', 'REJECTED'], { waitlistRank: rank });
+
+    it('lists the waitlist in rank order and moves a candidate up', async () => {
+      getApplicantsForJob.mockResolvedValue({ data: [waiting(1, 2), waiting(2, 1), waiting(3, 3)] });
+      reorderWaitlist.mockResolvedValue({ data: [] });
+      open();
+
+      const panel = await screen.findByRole('region', { name: 'Waitlist' });
+      expect(within(panel).getAllByRole('listitem').map((li) => li.textContent)).toEqual([
+        expect.stringContaining('Student 2'), expect.stringContaining('Student 1'), expect.stringContaining('Student 3'),
+      ]);
+
+      await userEvent.setup().click(within(panel).getByRole('button', { name: 'Move Student 3 up' }));
+
+      expect(reorderWaitlist).toHaveBeenCalledWith('7', [2, 3, 1]);
+    });
+
+    it('fills the free openings from the waitlist', async () => {
+      // 3 openings, 1 pending, 1 accepted (see beforeEach): 1 free.
+      getApplicantsForJob.mockResolvedValue({ data: [waiting(1, 1)] });
+      fillFromWaitlist.mockResolvedValue({ data: [] });
+      open();
+
+      await userEvent.setup().click(await screen.findByRole('button', { name: 'Fill 1 open opening' }));
+
+      expect(fillFromWaitlist).toHaveBeenCalledWith('7');
+    });
+
+    it('cannot fill when every opening is taken', async () => {
+      getMyJobs.mockResolvedValue({ data: [{ id: 7, title: 'Java Developer', openings: 2, offersPending: 1, offersAccepted: 1 }] });
+      getApplicantsForJob.mockResolvedValue({ data: [waiting(1, 1)] });
+      open();
+
+      expect(await screen.findByRole('button', { name: 'Fill no open openings' })).toBeDisabled();
+    });
+
+    it('asks to refresh when the waitlist changed meanwhile', async () => {
+      getApplicantsForJob.mockResolvedValue({ data: [waiting(1, 1), waiting(2, 2)] });
+      reorderWaitlist.mockRejectedValue(apiError(409, { code: 'WAITLIST_CHANGED', error: 'The waitlist changed in the meantime. Refresh and try again.' }));
+      open();
+
+      await userEvent.setup().click(await screen.findByRole('button', { name: 'Move Student 2 up' }));
+
+      expect(await screen.findByRole('alert')).toHaveTextContent(/waitlist changed/i);
+    });
   });
 });

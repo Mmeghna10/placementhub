@@ -149,6 +149,24 @@ The status change and its timeline row commit together, so a refused update adds
 
 ---
 
+### Phase 2: the waitlist refills openings
+
+**Rule:** when an offer is declined or expires, the opening goes to the next waitlisted candidate who is free (not holding another offer, not placed), in rank order.
+
+**Fix:** `WaitlistService.fillOpenings` runs inside the transaction that freed the opening. For each candidate:
+1. take an opening (`reserveOfferSeat`);
+2. claim the candidate's pending-offer place (`claimPendingOffer`);
+3. promote with `UPDATE … SET status = 'OFFERED' … WHERE id = ? AND status = 'WAITLISTED'`.
+
+Any step returning 0 means "someone else got there first, try the next candidate", and the earlier steps are undone. Promotion never throws, so **a decline never fails because of a promotion race**. When a skipped candidate becomes free (their other offer ends), the jobs waiting for them are retried.
+
+**Evidence:**
+- `simultaneousDeclinesNeverPromoteACandidateTwice`: 10 offer holders decline at once with 3 waiting → all 10 declines succeed, each waiting candidate is offered exactly once, seats 3/0.
+- `manyFillClicksAtOnceOfferEachFreeOpeningOnce`: 20 "fill" clicks, 3 free openings → exactly 3 offers, in rank order.
+- `aBusyCandidateIsSkippedAndGetsTheOpeningOnceFree`; `theRecruiterCanReorderTheWaitlistButNotFromAStaleList` (`409 WAITLIST_CHANGED`).
+
+---
+
 ## Scenario F: overlapping interviews
 
 **Rule:** a student cannot be in two interviews at once, even with different companies.

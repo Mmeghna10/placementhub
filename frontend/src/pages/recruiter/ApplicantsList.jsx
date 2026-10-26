@@ -9,6 +9,7 @@ import EmptyState from '../../components/EmptyState';
 import StatusBadge from '../../components/StatusBadge';
 import { getApplicantsForJob, getMyJobs, updateApplicationStatus } from '../../api/recruiterApi';
 import SeatMeter from '../../components/SeatMeter';
+import WaitlistPanel from '../../components/WaitlistPanel';
 
 function ApplicantDetails({ applicant }) {
   if (!applicant) return null;
@@ -117,6 +118,10 @@ export default function ApplicantsList() {
           Interview slots
         </Link>
       </div>
+
+      {!loading && (
+        <WaitlistPanel jobId={jobId} job={job} applicants={applicants} onChanged={() => setReloadKey((k) => k + 1)} />
+      )}
 
       <div className="mt-8">
         {message && <p className="text-sm text-brick font-medium mb-4">{message}</p>}
