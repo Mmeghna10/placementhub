@@ -22,6 +22,7 @@ public class AdminController {
 
     private final AdminService adminService;
     private final PlacementRules placementRules;
+    private final com.placementhub.backend.service.OfferDeskStatsService offerDeskStats;
 
     @GetMapping("/dashboard")
     public ResponseEntity<AdminDashboardResponse> getDashboard() {
@@ -52,6 +53,12 @@ public class AdminController {
     @GetMapping("/jobs/pending")
     public ResponseEntity<List<JobResponse>> getPendingJobs() {
         return ResponseEntity.ok(adminService.getPendingJobs());
+    }
+
+    /** The season at a glance: placement rate, tiers, offer outcomes, refills, top companies. */
+    @GetMapping("/placement-overview")
+    public ResponseEntity<PlacementOverviewResponse> getPlacementOverview() {
+        return ResponseEntity.ok(offerDeskStats.placementOverview());
     }
 
     /** The campus placement rules (tiers and upgrades). */

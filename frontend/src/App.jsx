@@ -27,6 +27,7 @@ import ManageRecruiters from './pages/admin/ManageRecruiters';
 import ManageJobs from './pages/admin/ManageJobs';
 import Analytics from './pages/admin/Analytics';
 import PlacementRules from './pages/admin/PlacementRules';
+import OfferDesk from './pages/recruiter/OfferDesk';
 
 import RecruiterProfile from './pages/recruiter/RecruiterProfile';
 import AdminProfile from './pages/admin/AdminProfile';
@@ -88,6 +89,9 @@ function App() {
           } />
           <Route path="/admin/jobs/pending" element={
             <ProtectedRoute allowedRole="ADMIN"><ManageJobs /></ProtectedRoute>
+          } />
+          <Route path="/recruiter/offer-desk" element={
+            <ProtectedRoute allowedRole="RECRUITER"><OfferDesk /></ProtectedRoute>
           } />
           <Route path="/admin/placement-rules" element={
             <ProtectedRoute allowedRole="ADMIN"><PlacementRules /></ProtectedRoute>

@@ -21,6 +21,7 @@ const roleLinks = {
   RECRUITER: [
     { to: '/recruiter/dashboard', label: 'Dashboard' },
     { to: '/recruiter/jobs', label: 'My Jobs' },
+    { to: '/recruiter/offer-desk', label: 'Offer Desk' },
     { to: '/recruiter/company', label: 'Company' },
   ],
   ADMIN: [

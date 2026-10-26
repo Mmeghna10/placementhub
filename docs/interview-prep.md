@@ -315,9 +315,9 @@ There are two layers, because the URL rule alone isn't enough:
 
 | Fact | Value | Source |
 |---|---|---|
-| Backend tests | 135 (unit, web security, MySQL integration, concurrency, API docs) | `./mvnw verify` in CI |
-| End-to-end tests | 21 Playwright tests (the 7 journeys, offers, waitlist, tier upgrades, security headers) against the full Docker stack | `e2e/run-e2e.ps1`, CI |
-| Frontend tests | 80 component tests, ~59% line coverage | `npm test` |
+| Backend tests | 138 (unit, web security, MySQL integration, concurrency, API docs) | `./mvnw verify` in CI |
+| End-to-end tests | 22 Playwright tests (the 7 journeys, offers, waitlist, tier upgrades, dashboards, security headers) against the full Docker stack | `e2e/run-e2e.ps1`, CI |
+| Frontend tests | 84 component tests, ~59% line coverage | `npm test` |
 | Duplicates without the unique key | 12 from 20 simultaneous clicks | concurrency mutation check |
 | Search throughput (one laptop) | ~2,200–2,400 req/s at p95 40–45 ms | `docs/performance.md` |
 | Apply burst | 200 students × 3 clicks → exactly 200 applications, 0 errors | k6 |
@@ -351,4 +351,23 @@ There are two layers, because the URL rule alone isn't enough:
 - **The cause:** JPA generated `FOR UPDATE OF students` for a query that joined `users`. The `users` row was read with a plain read, and in MySQL's REPEATABLE READ the first plain read fixes the transaction's snapshot. So the snapshot was taken before the wait, and after the wait the overlap check looked at old data.
 - **The fix:** a native `SELECT … FOR UPDATE` that locks both rows, run as the transaction's very first statement (`StudentRepository.lockByUserEmail`). The test now passes, and the lesson is in the code comment.
 - **The lesson:** "I took a lock" is not the same as "my later reads see fresh data". Isolation level and the moment a snapshot is taken matter, and only a real-database concurrency test showed it.
+
+## Offer Desk: the feature to demo
+
+**The 30-second version:** "Placement cells fight offer hoarding: students sit on several offers, seats stay empty, and recruiters chase replacements by email. Offer Desk gives every job a number of openings and every offer a deadline. A student holds one offer at a time. When an offer is declined or expires, the opening goes to the next person on the waitlist automatically. Dream-company rules are built in: accepting a higher-tier offer releases the earlier placement, and that company's waitlist refills it, so seats get filled across companies without anyone sending an email."
+
+**What to show (about 3 minutes):**
+1. **Recruiter → Offer Desk:** openings, pending offers with countdowns, the waitlist, and "auto-refills".
+2. **Applicants page:** waitlist two candidates and reorder them; offer the first one.
+3. **As the student:** decline. Back on the Offer Desk, the next candidate has the offer, and the activity feed says "offered automatically from the waitlist".
+4. **Admin → Rules:** upgrades on, maximum 2. Admin dashboard: placement rate, placements by tier, offer outcomes.
+
+**Why it is hard (the interview part):** every rule must hold when many people click at once.
+- **Seat counters** are atomic conditional UPDATEs.
+- **"One pending offer per student"** and the tier rules are inside the same conditional UPDATE on the student row.
+- **How an offer ends** is decided by the application's `@Version`.
+- **The expiry job** is safe on several servers without a distributed lock.
+- **Promotion and withdrawal** are conditional UPDATEs that never make the triggering decline or acceptance fail.
+
+Each rule has a 20-thread MySQL test, and three real bugs were found that way (see the bug stories above, and Scenarios E and F in `docs/concurrency.md`).
 

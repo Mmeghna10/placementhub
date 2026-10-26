@@ -4,6 +4,8 @@ export const getRecruiterProfile = () => axiosInstance.get('/api/recruiter/profi
 export const updateRecruiterProfile = (data) => axiosInstance.put('/api/recruiter/profile', data);
 export const createJob = (data) => axiosInstance.post('/api/recruiter/jobs', data);
 export const getMyJobs = () => axiosInstance.get('/api/recruiter/jobs');
+// Offer Desk: openings, pending offers, waitlists and activity across my jobs
+export const getOfferDesk = () => axiosInstance.get('/api/recruiter/offer-desk');
 export const updateJob = (id, data) => axiosInstance.put(`/api/recruiter/jobs/${id}`, data);
 export const deleteJob = (id) => axiosInstance.delete(`/api/recruiter/jobs/${id}`);
 export const getApplicantsForJob = (jobId) => axiosInstance.get(`/api/recruiter/jobs/${jobId}/applications`);

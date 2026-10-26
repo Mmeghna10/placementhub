@@ -82,6 +82,12 @@ public class RecruiterController {
         return ResponseEntity.ok(recruiterService.updateApplicationStatus(id, request));
     }
 
+    @Operation(summary = "My Offer Desk", description = "Openings, pending offers with deadlines, waitlists and recent offer activity across the recruiter's own jobs.")
+    @GetMapping("/offer-desk")
+    public ResponseEntity<OfferDeskResponse> getOfferDesk() {
+        return ResponseEntity.ok(recruiterService.getOfferDesk());
+    }
+
     @Operation(summary = "Offer free openings to the waitlist", description = "In rank order; skips candidates holding another offer or already placed. Use after raising the openings.")
     @PostMapping("/jobs/{jobId}/waitlist/fill")
     public ResponseEntity<List<ApplicationResponse>> fillFromWaitlist(@PathVariable Long jobId) {
