@@ -83,6 +83,7 @@ class ApiSecurityTest {
     @MockitoBean InterviewSlotService interviewSlotService;
     @MockitoBean OfferService offerService;
     @MockitoBean com.placementhub.backend.service.PlacementRules placementRules;
+    @MockitoBean com.placementhub.backend.service.OfferDeskStatsService offerDeskStats;
 
     @BeforeEach
     void users() {
@@ -239,6 +240,15 @@ class ApiSecurityTest {
 
     @Nested
     class Authorization {
+
+        @Test
+        void dashboardsAreOnlyForTheirRoles() throws Exception {
+            mockMvc.perform(get("/api/admin/placement-overview").header("Authorization", bearer(STUDENT, "STUDENT")))
+                    .andExpect(status().isForbidden());
+            mockMvc.perform(get("/api/recruiter/offer-desk").header("Authorization", bearer(STUDENT, "STUDENT")))
+                    .andExpect(status().isForbidden());
+            mockMvc.perform(get("/api/admin/placement-overview")).andExpect(status().isUnauthorized());
+        }
 
         @Test
         void studentCallingAdminApiIs403NotBadRequest() throws Exception {

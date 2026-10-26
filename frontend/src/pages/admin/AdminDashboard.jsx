@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom';
 import DashboardLayout from '../../components/DashboardLayout';
 import LoadingState from '../../components/LoadingState';
 import StatCard from '../../components/StatCard';
+import PlacementOverview from '../../components/PlacementOverview';
 import { BarChart3, Briefcase, Building2, FileText, GraduationCap, Hourglass, UserRoundSearch } from 'lucide-react';
 import { getDashboard } from '../../api/adminApi';
 
@@ -60,6 +61,8 @@ export default function AdminDashboard() {
           <StatCard key={c.label} {...c} />
         ))}
       </div>
+
+      <PlacementOverview />
     </DashboardLayout>
   );
 }

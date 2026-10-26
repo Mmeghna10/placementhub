@@ -32,6 +32,7 @@ public class RecruiterService {
     private final InterviewSlotRepository slotRepository;
     private final OfferService offerService;
     private final WaitlistService waitlistService;
+    private final OfferDeskStatsService offerDeskStats;
     private final Clock clock;
 
     private Recruiter getCurrentRecruiter() {
@@ -116,6 +117,11 @@ public class RecruiterService {
         job.setStatus(JobStatus.PENDING);
         job = jobRepository.saveAndFlush(job);
         return jobMapper.toResponse(job);
+    }
+
+    /** The recruiter's Offer Desk: only their own jobs (the id comes from the login). */
+    public OfferDeskResponse getOfferDesk() {
+        return offerDeskStats.offerDesk(getCurrentRecruiter().getId());
     }
 
     /** Offers every free opening of this job to the waitlist, in rank order. */

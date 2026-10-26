@@ -48,11 +48,13 @@ It is a **Spring Boot modular monolith** with a **React** frontend and **MySQL**
 - Publish interview slots with a capacity. A slot can never be overbooked.
 - **Offer Desk:** each job has a number of openings and an offer deadline. Offers can never exceed the openings; an offer that isn't answered in time expires automatically and its opening is freed. A seat meter shows filled / pending openings.
 - **Waitlist that refills itself:** put interviewed candidates on a ranked waitlist and reorder it. When an offer is declined or expires, the opening is offered to the next free candidate automatically (a candidate holding another offer is skipped, and retried once free). A "fill open openings" button does the same after raising the openings.
+- **Offer Desk page:** every opening, pending offer (with countdown) and waitlist across all jobs, the offer acceptance rate, automatic refills, and a feed of recent offer activity.
 
 **Admin**
 - Dashboard with live counts, pending approvals and analytics charts.
 - Approve or reject job postings, choosing each job's **tier** (Regular, Dream, Super-dream); browse students and recruiters (paginated).
 - **Placement rules:** whether placed students may upgrade to a higher tier, and how many offers a student may accept in total. With upgrades off: one student, one job.
+- **Placement season overview:** placement rate, placements by tier, offer outcomes (pending / accepted / declined / expired / released / withdrawn), acceptance rate, average time to decide, automatic refills and top hiring companies.
 - The first admin account is created from environment variables. Admins cannot sign up through the website.
 
 **AI guide**
@@ -219,8 +221,8 @@ All endpoints are documented with **OpenAPI**: run the backend and open **`/swag
 |---|---|---|
 | Auth | `POST /api/auth/register`, `POST /api/auth/login` | Public, rate-limited |
 | Student | `/api/students/**`: profile, `jobs/search`, `jobs/{id}`, `jobs/{id}/apply`, applications, slots, booking, `applications/{id}/offer/accept` and `/decline` | STUDENT, own data only |
-| Recruiter | `/api/recruiter/**`: profile (with company), jobs (CRUD, `close`), applicants, `applications/{id}/status`, slots, `jobs/{id}/waitlist` (reorder) and `jobs/{id}/waitlist/fill` | RECRUITER, own jobs only |
-| Admin | `/api/admin/**`: dashboard, pending jobs, approve/reject (with tier), students, recruiters, analytics, `placement-policy` | ADMIN |
+| Recruiter | `/api/recruiter/**`: profile (with company), jobs (CRUD, `close`), applicants, `applications/{id}/status`, slots, `jobs/{id}/waitlist` (reorder) and `jobs/{id}/waitlist/fill`, `offer-desk` | RECRUITER, own jobs only |
+| Admin | `/api/admin/**`: dashboard, pending jobs, approve/reject (with tier), students, recruiters, analytics, `placement-policy`, `placement-overview` | ADMIN |
 | Chat | `POST /api/chat` | Any logged-in user, rate-limited |
 | Health | `/actuator/health/liveness`, `/actuator/health/readiness` | Public, UP/DOWN only |
 | Metrics | `/actuator/metrics/**` | ADMIN |
@@ -306,10 +308,10 @@ Prerequisites: JDK 17+, Node.js 20+, MySQL 8.
 
 | Suite | Count | What it covers | Command |
 |---|---|---|---|
-| Backend unit and web tests | part of 135 | Business rules and the status state machine, token bucket, JWT/security rules (401/403/404 for other users' data), admin bootstrap | `cd backend` then `./mvnw test` |
-| Backend MySQL integration tests | part of 135 | Flyway migrations, transaction rollback, **N+1 query counts**, search SQL, **concurrency scenarios A–F**, health, observability, OpenAPI | same, with `PLACEMENTHUB_IT_DB_*` set (below) |
-| Frontend component tests | 80 | Login/register, route protection, session expiry, search/filters/paging, apply (double-click, 409), booking, recruiter status changes with version conflicts, admin approval, loading/empty/error states | `cd frontend` then `npm test` |
-| **End-to-end (Playwright)** | 21 | The 7 journeys in a real browser against the full Docker stack, plus the offer flow (offer → accept → opening filled, extra offer refused), the waitlist (build, reorder, decline → next candidate offered automatically), tier upgrades (Dream approval → upgrade → Regular placement released → its waitlist refilled) and the security headers (CSP present, no page violates it): register and log in; see eligible jobs; apply (double-click sends one request); duplicate refused; recruiter reviews their own applicant; admin approves jobs; invalid and unauthorized requests refused (401/403/404/400, route guards) | `e2e\run-e2e.ps1` |
+| Backend unit and web tests | part of 138 | Business rules and the status state machine, token bucket, JWT/security rules (401/403/404 for other users' data), admin bootstrap | `cd backend` then `./mvnw test` |
+| Backend MySQL integration tests | part of 138 | Flyway migrations, transaction rollback, **N+1 query counts**, search SQL, **concurrency scenarios A–F**, health, observability, OpenAPI | same, with `PLACEMENTHUB_IT_DB_*` set (below) |
+| Frontend component tests | 84 | Login/register, route protection, session expiry, search/filters/paging, apply (double-click, 409), booking, recruiter status changes with version conflicts, admin approval, loading/empty/error states | `cd frontend` then `npm test` |
+| **End-to-end (Playwright)** | 22 | The 7 journeys in a real browser against the full Docker stack, plus the offer flow (offer → accept → opening filled, extra offer refused), the waitlist (build, reorder, decline → next candidate offered automatically), tier upgrades (Dream approval → upgrade → Regular placement released → its waitlist refilled), the Offer Desk and placement overview dashboards and the security headers (CSP present, no page violates it): register and log in; see eligible jobs; apply (double-click sends one request); duplicate refused; recruiter reviews their own applicant; admin approves jobs; invalid and unauthorized requests refused (401/403/404/400, route guards) | `e2e\run-e2e.ps1` |
 | Load test (k6) | 4 scenarios | Throughput and latency, plus correctness under bursts | `load-tests\run-load-test.ps1` |
 
 The MySQL integration tests need an empty database whose name ends in `_it` or `_test`. They are skipped when it is not configured:
@@ -320,7 +322,7 @@ $env:PLACEMENTHUB_IT_DB_USER = "root"
 $env:PLACEMENTHUB_IT_DB_PASSWORD = "YOUR_MYSQL_PASSWORD"
 .\mvnw.cmd test
 ```
-In CI all 135 backend tests run against a MySQL 8.0.46 service container. Frontend tests mock the API, so they need no backend. Other commands are `npm run test:watch` and `npm run test:coverage`.
+In CI all 138 backend tests run against a MySQL 8.0.46 service container. Frontend tests mock the API, so they need no backend. Other commands are `npm run test:watch` and `npm run test:coverage`.
 
 **End-to-end tests:** `powershell -ExecutionPolicy Bypass -File e2e\run-e2e.ps1` starts a separate, throwaway copy of the stack (project `placementhub-e2e`, port 3200, random secrets, its own admin), runs the Playwright tests in Chromium and deletes the stack again. Add `-Headed` to watch the browser. Your normal stack and data are never touched. CI runs the same tests on every pull request.
 
@@ -349,9 +351,9 @@ Method, raw numbers and the connection-pool experiment are in **[docs/performanc
 flowchart LR
     PR[Pull request / push to main] --> CI
     subgraph CI["ci.yml"]
-        B["Backend: 135 tests<br/>on MySQL 8.0.46"]
-        F["Frontend: lint, 80 tests,<br/>npm audit, build"]
-        E["E2E: 21 Playwright tests<br/>on the full Docker stack"]
+        B["Backend: 138 tests<br/>on MySQL 8.0.46"]
+        F["Frontend: lint, 84 tests,<br/>npm audit, build"]
+        E["E2E: 22 Playwright tests<br/>on the full Docker stack"]
         D["Docker: build images,<br/>Trivy scan"]
     end
     CI -- all green --> DB["Deploy backend<br/>Azure App Service"]

@@ -863,7 +863,17 @@ Offer Desk, phase 3 (2026-10-26): placement tiers and campus rules.
 - **Totals:** 135 backend, 80 frontend, 21 end-to-end.
 - **Remaining:** phase 4 (Offer Desk dashboards).
 
-**Deliberately not built** (no requirement yet; see §8 and the README): Redis, background jobs, refresh tokens.
+Offer Desk, phase 4 (2026-10-26): the dashboards. This completes Offer Desk.
+- **Recruiter "Offer Desk" page:**
+  - totals across their jobs: filled of openings, pending offers, waitlisted, acceptance rate, automatic refills;
+  - per job: seat meter, pending offers with countdowns, waitlist size;
+  - a recent offer-activity feed.
+- **Admin "Placement season" overview:** placement rate, placements by tier, offer outcomes, acceptance rate, average time to decide, openings filled, automatic refills, top hiring companies.
+- **Backend:** `OfferDeskStatsService`, a fixed handful of SQL aggregate queries per dashboard. The recruiter desk only covers the logged-in recruiter's jobs. The deploy queue (#15) was confirmed working when #15 and #16 were merged back to back.
+- **Tests:** 2 MySQL tests (exact numbers for a recruiter's desk; changes in the campus overview); role checks for both endpoints; 4 frontend tests; 1 E2E test. Both screens were checked by screenshot with live test data.
+- **Totals:** 138 backend, 84 frontend, 22 end-to-end.
+
+**Deliberately not built** (no requirement yet; see §8 and the README): Redis (rate limits are per instance; offer rules need no cache), refresh tokens. Background jobs: added with Offer Desk (offer expiry) once there was a real need.
 
 **Known limitations (current):**
 - Rate limits are per instance (in memory). Several instances would need Redis.

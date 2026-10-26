@@ -5,7 +5,7 @@ import LoadingState from '../../components/LoadingState';
 import StatusBadge from '../../components/StatusBadge';
 import StatCard from '../../components/StatCard';
 import EmptyState from '../../components/EmptyState';
-import { Briefcase, Building2, ChevronRight, Hourglass, MapPin, Plus, Radio } from 'lucide-react';
+import { Briefcase, Building2, ChevronRight, Gift, Hourglass, MapPin, Plus, Radio } from 'lucide-react';
 import { getRecruiterProfile, getMyJobs } from '../../api/recruiterApi';
 
 export default function RecruiterDashboard() {
@@ -40,12 +40,20 @@ export default function RecruiterDashboard() {
             {profile?.companyName ? `Hiring for ${profile.companyName}.` : 'Your hiring overview.'}
           </p>
         </div>
+        <div className="flex gap-3 self-start sm:self-auto">
+        <Link
+          to="/recruiter/offer-desk"
+          className="inline-flex items-center gap-2 px-4 py-2.5 border border-ink/15 bg-white text-ink rounded-lg text-sm font-medium hover:border-ink/40 transition"
+        >
+          <Gift size={16} /> Offer Desk
+        </Link>
         <Link
           to="/recruiter/jobs/new"
-          className="inline-flex items-center gap-2 self-start sm:self-auto px-4 py-2.5 bg-ink text-paper rounded-lg text-sm font-medium hover:bg-ink/90 transition shadow-sm"
+          className="inline-flex items-center gap-2 px-4 py-2.5 bg-ink text-paper rounded-lg text-sm font-medium hover:bg-ink/90 transition shadow-sm"
         >
           <Plus size={16} /> Post a job
         </Link>
+        </div>
       </div>
 
       {!profile?.companyName && (
